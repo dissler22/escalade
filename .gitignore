@@ -17,3 +17,8 @@ node_modules/
 # Env / local
 .env
 .env.local
+
+# Codex local state (keep only shared prompts)
+.codex/*
+!.codex/prompts/
+!.codex/prompts/*.md
