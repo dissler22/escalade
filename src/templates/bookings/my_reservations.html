@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block title %}Mes reservations{% endblock %}
+
+{% block content %}
+  <section class="stack">
+    <div class="card">
+      <h1>Mes reservations</h1>
+    </div>
+    {% for reservation in reservations %}
+      <article class="card">
+        <h2>{{ reservation.occurrence.label }}</h2>
+        <p>{{ reservation.occurrence.session_date }} · {{ reservation.occurrence.start_time }} - {{ reservation.occurrence.end_time }}</p>
+        <form method="post" action="{% url 'bookings:cancel-occurrence' occurrence_id=reservation.occurrence.id %}">
+          {% csrf_token %}
+          <button type="submit" class="secondary">Annuler</button>
+        </form>
+      </article>
+    {% empty %}
+      <div class="card">
+        <p>Vous n'avez aucune reservation active.</p>
+      </div>
+    {% endfor %}
+  </section>
+{% endblock %}

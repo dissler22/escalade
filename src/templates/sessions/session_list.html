@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block title %}Seances ouvertes{% endblock %}
+
+{% block content %}
+  <section class="stack">
+    <div class="card">
+      <h1>Seances ouvertes</h1>
+      <p>Consultez les prochaines seances et reservez une place tant qu'il en reste.</p>
+    </div>
+    {% for occurrence in occurrences %}
+      <article class="card">
+        <div class="actions">
+          <span class="badge">{{ occurrence.get_status_display }}</span>
+          <span>{{ occurrence.session_date }} · {{ occurrence.start_time }} - {{ occurrence.end_time }}</span>
+        </div>
+        <h2><a href="{% url 'sessions:session-detail' occurrence_id=occurrence.id %}">{{ occurrence.label }}</a></h2>
+        <p>{{ occurrence.remaining_capacity }} place(s) restante(s) sur {{ occurrence.capacity }}.</p>
+      </article>
+    {% empty %}
+      <div class="card">
+        <p>Aucune seance ouverte pour le moment.</p>
+      </div>
+    {% endfor %}
+  </section>
+{% endblock %}

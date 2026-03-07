@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <section class="card">
+    <h1>{{ title }}</h1>
+    <form method="post">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button type="submit">Enregistrer</button>
+    </form>
+    {% if form.instance.pk %}
+      <form method="post" action="{% url 'sessions_admin:occurrence-status' occurrence_id=form.instance.id %}" class="inline-form">
+        {% csrf_token %}
+        <select name="status">
+          <option value="open">Ouvrir</option>
+          <option value="closed">Fermer</option>
+          <option value="cancelled">Annuler</option>
+        </select>
+        <input type="text" name="reason" placeholder="Motif optionnel" />
+        <button type="submit" class="secondary">Mettre a jour le statut</button>
+      </form>
+    {% endif %}
+  </section>
+{% endblock %}

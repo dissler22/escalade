@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{% block title %}Escalade{% endblock %}</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'css/app.css' %}" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div>
+        <a class="brand" href="{% url 'sessions:session-list' %}">Escalade</a>
+        {% if request.user.is_authenticated %}
+          <p class="meta">{{ request.user.full_name }} · {{ request.user.get_role_display }}</p>
+        {% endif %}
+      </div>
+      {% if request.user.is_authenticated %}
+        <nav class="nav">
+          <a href="{% url 'sessions:session-list' %}">Seances</a>
+          <a href="{% url 'bookings:my-reservations' %}">Mes reservations</a>
+          {% if request.user.role == "admin" %}
+            <a href="{% url 'sessions_admin:series-list' %}">Admin</a>
+            <a href="{% url 'accounts_admin:account-list' %}">Comptes</a>
+          {% endif %}
+          <a href="{% url 'accounts:logout' %}">Se deconnecter</a>
+        </nav>
+      {% endif %}
+    </header>
+    <main class="page">
+      {% if messages %}
+        <ul class="messages">
+          {% for message in messages %}
+            <li class="message {{ message.tags }}">{{ message }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+      {% block content %}{% endblock %}
+    </main>
+  </body>
+</html>
