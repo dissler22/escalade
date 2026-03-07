@@ -1,0 +1,617 @@
+openapi: 3.1.0
+info:
+  title: Escalade Free Session Booking API
+  version: 0.1.0
+  description: |
+    Contrat applicatif de reference pour la V1 de reservation de seances libres.
+servers:
+  - url: https://example.invalid
+paths:
+  /auth/login:
+    post:
+      summary: Authentifier un utilisateur
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+      responses:
+        "200":
+          description: Connexion reussie
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionUser"
+        "401":
+          description: Identifiants invalides ou compte inactif
+
+  /auth/logout:
+    post:
+      summary: Deconnecter l'utilisateur courant
+      operationId: logout
+      responses:
+        "204":
+          description: Deconnexion reussie
+
+  /me:
+    get:
+      summary: Recuperer le profil de l'utilisateur courant
+      operationId: currentUser
+      responses:
+        "200":
+          description: Profil courant
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionUser"
+
+  /me/reservations:
+    get:
+      summary: Lister les reservations de l'utilisateur courant
+      operationId: listMyReservations
+      responses:
+        "200":
+          description: Reservations courantes et a venir
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Reservation"
+
+  /sessions:
+    get:
+      summary: Lister les seances reservables pour les adherents
+      operationId: listOpenSessions
+      parameters:
+        - in: query
+          name: fromDate
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Liste des seances ouvertes a venir
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/SessionOccurrence"
+
+  /sessions/{sessionId}:
+    get:
+      summary: Recuperer le detail d'une seance
+      operationId: getSession
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      responses:
+        "200":
+          description: Detail de la seance
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionOccurrence"
+        "404":
+          description: Seance introuvable
+
+  /sessions/{sessionId}/reservations:
+    post:
+      summary: Reserver une place pour l'utilisateur courant
+      operationId: createMyReservation
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      responses:
+        "201":
+          description: Reservation creee
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Reservation"
+        "409":
+          description: Seance non reservable ou deja reservee
+
+    delete:
+      summary: Annuler la reservation de l'utilisateur courant
+      operationId: cancelMyReservation
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      responses:
+        "204":
+          description: Reservation annulee
+        "404":
+          description: Reservation active introuvable
+
+  /admin/session-series:
+    get:
+      summary: Lister les series de seances
+      operationId: listSessionSeries
+      responses:
+        "200":
+          description: Liste des series
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/SessionSeries"
+
+    post:
+      summary: Creer une serie hebdomadaire
+      operationId: createSessionSeries
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SessionSeriesInput"
+      responses:
+        "201":
+          description: Serie creee
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionSeries"
+
+  /admin/session-series/{seriesId}:
+    patch:
+      summary: Modifier une serie hebdomadaire
+      operationId: updateSessionSeries
+      parameters:
+        - $ref: "#/components/parameters/SeriesId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SessionSeriesPatch"
+      responses:
+        "200":
+          description: Serie mise a jour
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionSeries"
+
+  /admin/sessions:
+    get:
+      summary: Lister les occurrences de seances cote admin
+      operationId: listAdminSessions
+      responses:
+        "200":
+          description: Liste des occurrences
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/SessionOccurrence"
+
+    post:
+      summary: Creer une occurrence ponctuelle
+      operationId: createSessionOccurrence
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SessionOccurrenceInput"
+      responses:
+        "201":
+          description: Occurrence creee
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionOccurrence"
+
+  /admin/sessions/{sessionId}:
+    patch:
+      summary: Modifier une occurrence de seance
+      operationId: updateSessionOccurrence
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SessionOccurrencePatch"
+      responses:
+        "200":
+          description: Occurrence mise a jour
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionOccurrence"
+
+  /admin/sessions/{sessionId}/status:
+    post:
+      summary: Ouvrir, fermer ou annuler une occurrence
+      operationId: changeSessionStatus
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [open, closed, cancelled]
+                reason:
+                  type: string
+      responses:
+        "200":
+          description: Statut de seance modifie
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionOccurrence"
+
+  /admin/sessions/{sessionId}/reservations:
+    get:
+      summary: Lister les reservations d'une seance
+      operationId: listSessionReservations
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      responses:
+        "200":
+          description: Reservations de la seance
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Reservation"
+
+    post:
+      summary: Ajouter manuellement une reservation a une seance
+      operationId: createAdminReservation
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId]
+              properties:
+                userId:
+                  type: string
+                reason:
+                  type: string
+      responses:
+        "201":
+          description: Reservation admin creee
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Reservation"
+        "409":
+          description: Seance non reservable ou reservation deja existante
+
+  /admin/sessions/{sessionId}/reservations/{reservationId}:
+    delete:
+      summary: Retirer manuellement une reservation
+      operationId: deleteAdminReservation
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/ReservationId"
+      responses:
+        "204":
+          description: Reservation retiree
+        "404":
+          description: Reservation introuvable
+
+  /admin/sessions/{sessionId}/audit:
+    get:
+      summary: Consulter l'historique d'une seance
+      operationId: listSessionAudit
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      responses:
+        "200":
+          description: Historique de la seance
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AuditEvent"
+
+  /admin/accounts/{userId}:
+    patch:
+      summary: Activer ou desactiver un compte
+      operationId: updateAccount
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                isActive:
+                  type: boolean
+                role:
+                  type: string
+                  enum: [member, admin]
+      responses:
+        "200":
+          description: Compte mis a jour
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Account"
+
+components:
+  parameters:
+    SessionId:
+      in: path
+      name: sessionId
+      required: true
+      schema:
+        type: string
+    SeriesId:
+      in: path
+      name: seriesId
+      required: true
+      schema:
+        type: string
+    ReservationId:
+      in: path
+      name: reservationId
+      required: true
+      schema:
+        type: string
+    UserId:
+      in: path
+      name: userId
+      required: true
+      schema:
+        type: string
+  schemas:
+    SessionUser:
+      type: object
+      required: [id, fullName, email, role, isActive]
+      properties:
+        id:
+          type: string
+        fullName:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+          enum: [member, admin]
+        isActive:
+          type: boolean
+    Account:
+      allOf:
+        - $ref: "#/components/schemas/SessionUser"
+    SessionSeries:
+      type: object
+      required: [id, label, weekday, startTime, endTime, defaultCapacity, isActive]
+      properties:
+        id:
+          type: string
+        label:
+          type: string
+        weekday:
+          type: string
+          enum: [monday, tuesday, wednesday, thursday, friday, saturday, sunday]
+        startTime:
+          type: string
+          format: time
+        endTime:
+          type: string
+          format: time
+        defaultCapacity:
+          type: integer
+          minimum: 1
+        isActive:
+          type: boolean
+    SessionSeriesInput:
+      type: object
+      required: [label, weekday, startTime, endTime, defaultCapacity]
+      properties:
+        label:
+          type: string
+        weekday:
+          type: string
+          enum: [monday, tuesday, wednesday, thursday, friday, saturday, sunday]
+        startTime:
+          type: string
+          format: time
+        endTime:
+          type: string
+          format: time
+        defaultCapacity:
+          type: integer
+          minimum: 1
+    SessionSeriesPatch:
+      type: object
+      properties:
+        label:
+          type: string
+        weekday:
+          type: string
+          enum: [monday, tuesday, wednesday, thursday, friday, saturday, sunday]
+        startTime:
+          type: string
+          format: time
+        endTime:
+          type: string
+          format: time
+        defaultCapacity:
+          type: integer
+          minimum: 1
+        isActive:
+          type: boolean
+    SessionOccurrence:
+      type: object
+      required:
+        [id, label, sessionDate, startTime, endTime, capacity, remainingCapacity, status]
+      properties:
+        id:
+          type: string
+        seriesId:
+          type: string
+          nullable: true
+        label:
+          type: string
+        sessionDate:
+          type: string
+          format: date
+        startTime:
+          type: string
+          format: time
+        endTime:
+          type: string
+          format: time
+        capacity:
+          type: integer
+          minimum: 1
+        remainingCapacity:
+          type: integer
+          minimum: 0
+        status:
+          type: string
+          enum: [draft, open, closed, cancelled, completed]
+        notes:
+          type: string
+    SessionOccurrenceInput:
+      type: object
+      required: [label, sessionDate, startTime, endTime, capacity]
+      properties:
+        seriesId:
+          type: string
+        label:
+          type: string
+        sessionDate:
+          type: string
+          format: date
+        startTime:
+          type: string
+          format: time
+        endTime:
+          type: string
+          format: time
+        capacity:
+          type: integer
+          minimum: 1
+        status:
+          type: string
+          enum: [draft, open, closed]
+        notes:
+          type: string
+    SessionOccurrencePatch:
+      type: object
+      properties:
+        label:
+          type: string
+        sessionDate:
+          type: string
+          format: date
+        startTime:
+          type: string
+          format: time
+        endTime:
+          type: string
+          format: time
+        capacity:
+          type: integer
+          minimum: 1
+        notes:
+          type: string
+    Reservation:
+      type: object
+      required: [id, sessionId, userId, status, createdByRole, createdAt]
+      properties:
+        id:
+          type: string
+        sessionId:
+          type: string
+        userId:
+          type: string
+        status:
+          type: string
+          enum: [active, cancelled]
+        createdByRole:
+          type: string
+          enum: [member, admin]
+        createdAt:
+          type: string
+          format: date-time
+        cancelledAt:
+          type: string
+          format: date-time
+          nullable: true
+    AuditEvent:
+      type: object
+      required: [id, actorUserId, actorRole, actionType, targetType, targetId, createdAt]
+      properties:
+        id:
+          type: string
+        actorUserId:
+          type: string
+        actorRole:
+          type: string
+          enum: [member, admin]
+        actionType:
+          type: string
+        targetType:
+          type: string
+          enum: [account, session_series, session_occurrence, reservation]
+        targetId:
+          type: string
+        occurrenceId:
+          type: string
+          nullable: true
+        reservationId:
+          type: string
+          nullable: true
+        reason:
+          type: string
+        createdAt:
+          type: string
+          format: date-time

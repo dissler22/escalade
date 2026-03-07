@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}Administration des seances{% endblock %}
+
+{% block content %}
+  <section class="stack">
+    <div class="card">
+      <div class="actions">
+        <a class="button" href="{% url 'sessions_admin:series-create' %}">Nouvelle serie</a>
+        <a class="button secondary" href="{% url 'sessions_admin:occurrence-create' %}">Nouvelle seance</a>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Series hebdomadaires</h2>
+      <table class="table">
+        <thead>
+          <tr><th>Label</th><th>Jour</th><th>Capacite</th><th></th></tr>
+        </thead>
+        <tbody>
+          {% for item in series_items %}
+            <tr>
+              <td>{{ item.label }}</td>
+              <td>{{ item.get_weekday_display }}</td>
+              <td>{{ item.default_capacity }}</td>
+              <td><a href="{% url 'sessions_admin:series-edit' series_id=item.id %}">Modifier</a></td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="4">Aucune serie.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="card">
+      <h2>Occurrences</h2>
+      <table class="table">
+        <thead>
+          <tr><th>Date</th><th>Label</th><th>Capacite</th><th>Statut</th><th></th></tr>
+        </thead>
+        <tbody>
+          {% for occurrence in occurrences %}
+            <tr>
+              <td>{{ occurrence.session_date }}</td>
+              <td>{{ occurrence.label }}</td>
+              <td>{{ occurrence.capacity }}</td>
+              <td>{{ occurrence.get_status_display }}</td>
+              <td class="actions">
+                <a href="{% url 'sessions_admin:occurrence-edit' occurrence_id=occurrence.id %}">Editer</a>
+                <a href="{% url 'bookings_admin:session-reservations' occurrence_id=occurrence.id %}">Inscrits</a>
+                <a href="{% url 'audit:session-history' occurrence_id=occurrence.id %}">Audit</a>
+              </td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="5">Aucune occurrence.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+{% endblock %}

@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block title %}Detail seance{% endblock %}
+
+{% block content %}
+  <section class="card">
+    <span class="badge{% if occurrence.remaining_capacity == 0 %} is-danger{% endif %}">
+      {{ occurrence.remaining_capacity }} place(s) restante(s)
+    </span>
+    <h1>{{ occurrence.label }}</h1>
+    <p>{{ occurrence.session_date }} · {{ occurrence.start_time }} - {{ occurrence.end_time }}</p>
+    <p>Statut: {{ occurrence.get_status_display }}</p>
+    {% if my_reservation %}
+      <form method="post" action="{% url 'bookings:cancel-occurrence' occurrence_id=occurrence.id %}">
+        {% csrf_token %}
+        <button type="submit" class="danger">Annuler ma reservation</button>
+      </form>
+    {% elif occurrence.is_bookable %}
+      <form method="post" action="{% url 'bookings:book-occurrence' occurrence_id=occurrence.id %}">
+        {% csrf_token %}
+        <button type="submit">Reserver ma place</button>
+      </form>
+    {% else %}
+      <p>Cette seance n'est pas reservable actuellement.</p>
+    {% endif %}
+  </section>
+{% endblock %}
