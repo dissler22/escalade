@@ -19,7 +19,7 @@ Sync Impact Report
   - updated .specify/templates/plan-template.md
   - updated .specify/templates/spec-template.md
   - updated .specify/templates/tasks-template.md
-  - pending .specify/templates/commands/*.md (directory absent, no command files to update)
+  - updated .specify/templates/commands/README.md (placeholder file to keep the directory present)
 - Follow-up TODOs:
   - None
 -->
