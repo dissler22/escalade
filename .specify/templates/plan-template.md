@@ -17,21 +17,36 @@
   the iteration process.
 -->
 
-**Language/Version**: [e.g., Python 3.11, Swift 5.9, Rust 1.75 or NEEDS CLARIFICATION]  
-**Primary Dependencies**: [e.g., FastAPI, UIKit, LLVM or NEEDS CLARIFICATION]  
-**Storage**: [if applicable, e.g., PostgreSQL, CoreData, files or N/A]  
-**Testing**: [e.g., pytest, XCTest, cargo test or NEEDS CLARIFICATION]  
-**Target Platform**: [e.g., Linux server, iOS 15+, WASM or NEEDS CLARIFICATION]
-**Project Type**: [e.g., library/cli/web-service/mobile-app/compiler/desktop-app or NEEDS CLARIFICATION]  
-**Performance Goals**: [domain-specific, e.g., 1000 req/s, 10k lines/sec, 60 fps or NEEDS CLARIFICATION]  
-**Constraints**: [domain-specific, e.g., <200ms p95, <100MB memory, offline-capable or NEEDS CLARIFICATION]  
-**Scale/Scope**: [domain-specific, e.g., 10k users, 1M LOC, 50 screens or NEEDS CLARIFICATION]
+**Language/Version**: [e.g., TypeScript 5.x, Node.js 22.x or NEEDS CLARIFICATION]  
+**Primary Dependencies**: [e.g., Next.js, React, Fastify, Prisma or NEEDS CLARIFICATION]  
+**Storage**: [e.g., PostgreSQL, SQLite, Supabase, files or NEEDS CLARIFICATION]  
+**Testing**: [e.g., Vitest, Playwright, Cypress or NEEDS CLARIFICATION]  
+**Target Platform**: [e.g., mobile web browsers first, desktop browsers second]  
+**Project Type**: [mobile-first web app or NEEDS CLARIFICATION]  
+**Performance Goals**: [e.g., registration flow completes in <2 minutes on 4G]  
+**Constraints**: [e.g., low-cost hosting, manual fallback required, privacy by minimization]  
+**Scale/Scope**: [e.g., one club, volunteer-run operations, seasonal session volume]  
+**Operational Recovery**: [manual fallback for critical flows, or NEEDS CLARIFICATION]  
+**Cost Ceiling**: [zero or near-zero recurring cost, or approved exception]
 
 ## Constitution Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+- Mobile-first web: the primary journey is designed for smartphone browsers; any
+  native requirement is explicitly justified and approved.
+- Operational simplicity: the feature can be run by association volunteers without
+  daily technical intervention, and any recurring admin task is described.
+- Cost control: hosting and dependencies stay at zero or near-zero recurring cost,
+  or an approved exception is documented.
+- Roles and rules: actor roles, permissions and decided business rules are explicit;
+  unresolved rules are carried as open spec items rather than invented in design.
+- Traceability: registration and cancellation events that affect operations are
+  identified with their required audit trail.
+- MVP first: a manual or basic MVP slice is defined before advanced automation.
+- Data minimization: created or exposed personal data, access scope and retention
+  approach are documented.
+- Manual recovery: a fallback path exists for admins when automation or sync fails.
 
 ## Project Structure
 
@@ -60,7 +75,7 @@ specs/[###-feature]/
 src/
 ├── models/
 ├── services/
-├── cli/
+├── ui/
 └── lib/
 
 tests/
@@ -68,7 +83,7 @@ tests/
 ├── integration/
 └── unit/
 
-# [REMOVE IF UNUSED] Option 2: Web application (when "frontend" + "backend" detected)
+# [REMOVE IF UNUSED] Option 2: Web application (when frontend + backend are split)
 backend/
 ├── src/
 │   ├── models/
@@ -80,15 +95,9 @@ frontend/
 ├── src/
 │   ├── components/
 │   ├── pages/
+│   ├── flows/
 │   └── services/
 └── tests/
-
-# [REMOVE IF UNUSED] Option 3: Mobile + API (when "iOS/Android" detected)
-api/
-└── [same as backend above]
-
-ios/ or android/
-└── [platform-specific structure: feature modules, UI flows, platform tests]
 ```
 
 **Structure Decision**: [Document the selected structure and reference the real
@@ -100,5 +109,5 @@ directories captured above]
 
 | Violation | Why Needed | Simpler Alternative Rejected Because |
 |-----------|------------|-------------------------------------|
-| [e.g., 4th project] | [current need] | [why 3 projects insufficient] |
-| [e.g., Repository pattern] | [specific problem] | [why direct DB access insufficient] |
+| [e.g., paid messaging provider] | [current need] | [why manual or free option is insufficient] |
+| [e.g., native wrapper] | [specific unmet web constraint] | [why mobile web cannot satisfy it] |

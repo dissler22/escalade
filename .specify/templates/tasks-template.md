@@ -8,38 +8,38 @@ description: "Task list template for feature implementation"
 **Input**: Design documents from `/specs/[###-feature-name]/`
 **Prerequisites**: plan.md (required), spec.md (required for user stories), research.md, data-model.md, contracts/
 
-**Tests**: The examples below include test tasks. Tests are OPTIONAL - only include them if explicitly requested in the feature specification.
+**Tests**: Include tests when requested by the specification, when the change is risky, or when they are the clearest way to verify roles, auditability, or recovery behavior.
 
-**Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
+**Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story. Prioritize the MVP story before advanced automation work.
 
 ## Format: `[ID] [P?] [Story] Description`
 
 - **[P]**: Can run in parallel (different files, no dependencies)
 - **[Story]**: Which user story this task belongs to (e.g., US1, US2, US3)
 - Include exact file paths in descriptions
+- Include explicit tasks for audit trail, role enforcement, smartphone validation and manual recovery whenever the feature touches them
 
 ## Path Conventions
 
 - **Single project**: `src/`, `tests/` at repository root
 - **Web app**: `backend/src/`, `frontend/src/`
-- **Mobile**: `api/src/`, `ios/src/` or `android/src/`
 - Paths shown below assume single project - adjust based on plan.md structure
 
-<!-- 
+<!--
   ============================================================================
   IMPORTANT: The tasks below are SAMPLE TASKS for illustration purposes only.
-  
+
   The /speckit.tasks command MUST replace these with actual tasks based on:
   - User stories from spec.md (with their priorities P1, P2, P3...)
   - Feature requirements from plan.md
   - Entities from data-model.md
   - Endpoints from contracts/
-  
+
   Tasks MUST be organized by user story so each story can be:
   - Implemented independently
   - Tested independently
   - Delivered as an MVP increment
-  
+
   DO NOT keep these sample tasks in the generated tasks.md file.
   ============================================================================
 -->
@@ -49,8 +49,9 @@ description: "Task list template for feature implementation"
 **Purpose**: Project initialization and basic structure
 
 - [ ] T001 Create project structure per implementation plan
-- [ ] T002 Initialize [language] project with [framework] dependencies
-- [ ] T003 [P] Configure linting and formatting tools
+- [ ] T002 Initialize project dependencies and local tooling
+- [ ] T003 [P] Document zero or near-zero cost assumptions for the selected stack
+- [ ] T004 [P] Define the primary smartphone viewport and validation approach for the feature
 
 ---
 
@@ -58,42 +59,40 @@ description: "Task list template for feature implementation"
 
 **Purpose**: Core infrastructure that MUST be complete before ANY user story can be implemented
 
-**⚠️ CRITICAL**: No user story work can begin until this phase is complete
+**CRITICAL**: No user story work can begin until this phase is complete
 
 Examples of foundational tasks (adjust based on your project):
 
-- [ ] T004 Setup database schema and migrations framework
-- [ ] T005 [P] Implement authentication/authorization framework
-- [ ] T006 [P] Setup API routing and middleware structure
-- [ ] T007 Create base models/entities that all stories depend on
-- [ ] T008 Configure error handling and logging infrastructure
-- [ ] T009 Setup environment configuration management
+- [ ] T005 Setup base data model and migrations framework
+- [ ] T006 [P] Implement authentication and role enforcement foundations
+- [ ] T007 [P] Establish audit event recording for registration, cancellation and admin correction flows
+- [ ] T008 [P] Set up admin-visible error handling and recovery hooks
+- [ ] T009 Configure environment and secrets management consistent with minimal data handling
+- [ ] T010 Document the manual fallback path for core operational failures
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 
 ---
 
-## Phase 3: User Story 1 - [Title] (Priority: P1) 🎯 MVP
+## Phase 3: User Story 1 - [Title] (Priority: P1) MVP
 
 **Goal**: [Brief description of what this story delivers]
 
-**Independent Test**: [How to verify this story works on its own]
+**Independent Test**: [How to verify this story works on its own, starting on smartphone]
 
-### Tests for User Story 1 (OPTIONAL - only if tests requested) ⚠️
+### Tests for User Story 1 (include when needed)
 
-> **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
-
-- [ ] T010 [P] [US1] Contract test for [endpoint] in tests/contract/test_[name].py
-- [ ] T011 [P] [US1] Integration test for [user journey] in tests/integration/test_[name].py
+- [ ] T011 [P] [US1] Add verification for the primary journey in tests/[type]/[name]
+- [ ] T012 [P] [US1] Add verification for role enforcement or validation edge cases in tests/[type]/[name]
 
 ### Implementation for User Story 1
 
-- [ ] T012 [P] [US1] Create [Entity1] model in src/models/[entity1].py
-- [ ] T013 [P] [US1] Create [Entity2] model in src/models/[entity2].py
-- [ ] T014 [US1] Implement [Service] in src/services/[service].py (depends on T012, T013)
-- [ ] T015 [US1] Implement [endpoint/feature] in src/[location]/[file].py
-- [ ] T016 [US1] Add validation and error handling
-- [ ] T017 [US1] Add logging for user story 1 operations
+- [ ] T013 [P] [US1] Create or update the required entity models in [file paths]
+- [ ] T014 [US1] Implement the core service or action in [file path]
+- [ ] T015 [US1] Implement the smartphone-first UI or endpoint in [file path]
+- [ ] T016 [US1] Add audit trail emission for the story's registration or cancellation events
+- [ ] T017 [US1] Add admin-visible handling or manual correction support for failure cases
+- [ ] T018 [US1] Validate the story on the primary smartphone viewport and record any constraints
 
 **Checkpoint**: At this point, User Story 1 should be fully functional and testable independently
 
@@ -105,19 +104,19 @@ Examples of foundational tasks (adjust based on your project):
 
 **Independent Test**: [How to verify this story works on its own]
 
-### Tests for User Story 2 (OPTIONAL - only if tests requested) ⚠️
+### Tests for User Story 2 (include when needed)
 
-- [ ] T018 [P] [US2] Contract test for [endpoint] in tests/contract/test_[name].py
-- [ ] T019 [P] [US2] Integration test for [user journey] in tests/integration/test_[name].py
+- [ ] T019 [P] [US2] Add verification for the story in tests/[type]/[name]
+- [ ] T020 [P] [US2] Add verification for newly introduced audit or recovery behavior in tests/[type]/[name]
 
 ### Implementation for User Story 2
 
-- [ ] T020 [P] [US2] Create [Entity] model in src/models/[entity].py
-- [ ] T021 [US2] Implement [Service] in src/services/[service].py
-- [ ] T022 [US2] Implement [endpoint/feature] in src/[location]/[file].py
-- [ ] T023 [US2] Integrate with User Story 1 components (if needed)
+- [ ] T021 [P] [US2] Create or update required models in [file paths]
+- [ ] T022 [US2] Implement the story service, UI or endpoint in [file paths]
+- [ ] T023 [US2] Extend auditability, role enforcement and admin handling as required
+- [ ] T024 [US2] Document any new manual operation introduced by the story
 
-**Checkpoint**: At this point, User Stories 1 AND 2 should both work independently
+**Checkpoint**: At this point, User Stories 1 and 2 should both work independently
 
 ---
 
@@ -127,16 +126,16 @@ Examples of foundational tasks (adjust based on your project):
 
 **Independent Test**: [How to verify this story works on its own]
 
-### Tests for User Story 3 (OPTIONAL - only if tests requested) ⚠️
+### Tests for User Story 3 (include when needed)
 
-- [ ] T024 [P] [US3] Contract test for [endpoint] in tests/contract/test_[name].py
-- [ ] T025 [P] [US3] Integration test for [user journey] in tests/integration/test_[name].py
+- [ ] T025 [P] [US3] Add verification for the story in tests/[type]/[name]
+- [ ] T026 [P] [US3] Add verification for permissions, auditability or recovery edge cases in tests/[type]/[name]
 
 ### Implementation for User Story 3
 
-- [ ] T026 [P] [US3] Create [Entity] model in src/models/[entity].py
-- [ ] T027 [US3] Implement [Service] in src/services/[service].py
-- [ ] T028 [US3] Implement [endpoint/feature] in src/[location]/[file].py
+- [ ] T027 [P] [US3] Create or update required models in [file paths]
+- [ ] T028 [US3] Implement the story service, UI or endpoint in [file paths]
+- [ ] T029 [US3] Extend auditability, role enforcement and manual recovery support as required
 
 **Checkpoint**: All user stories should now be independently functional
 
@@ -150,12 +149,11 @@ Examples of foundational tasks (adjust based on your project):
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [ ] TXXX [P] Documentation updates in docs/
-- [ ] TXXX Code cleanup and refactoring
-- [ ] TXXX Performance optimization across all stories
-- [ ] TXXX [P] Additional unit tests (if requested) in tests/unit/
-- [ ] TXXX Security hardening
-- [ ] TXXX Run quickstart.md validation
+- [ ] TXXX [P] Update operational documentation in docs/ or specs/
+- [ ] TXXX Review data minimization and access scope against the approved spec
+- [ ] TXXX [P] Add additional regression coverage where needed
+- [ ] TXXX Validate the manual recovery path end-to-end
+- [ ] TXXX Confirm advanced automation tasks still come after the manual MVP baseline
 
 ---
 
@@ -164,47 +162,47 @@ Examples of foundational tasks (adjust based on your project):
 ### Phase Dependencies
 
 - **Setup (Phase 1)**: No dependencies - can start immediately
-- **Foundational (Phase 2)**: Depends on Setup completion - BLOCKS all user stories
+- **Foundational (Phase 2)**: Depends on Setup completion - blocks all user stories
 - **User Stories (Phase 3+)**: All depend on Foundational phase completion
-  - User stories can then proceed in parallel (if staffed)
-  - Or sequentially in priority order (P1 → P2 → P3)
+  - User stories can then proceed in parallel if capacity allows
+  - Or sequentially in priority order (P1 -> P2 -> P3)
 - **Polish (Final Phase)**: Depends on all desired user stories being complete
 
 ### User Story Dependencies
 
-- **User Story 1 (P1)**: Can start after Foundational (Phase 2) - No dependencies on other stories
-- **User Story 2 (P2)**: Can start after Foundational (Phase 2) - May integrate with US1 but should be independently testable
-- **User Story 3 (P3)**: Can start after Foundational (Phase 2) - May integrate with US1/US2 but should be independently testable
+- **User Story 1 (P1)**: Starts first because it defines the MVP and the manual baseline
+- **User Story 2 (P2)**: Can start after Foundational; must not break US1 independence
+- **User Story 3 (P3)**: Can start after Foundational; must not introduce automation that bypasses traceability or manual recovery
 
 ### Within Each User Story
 
-- Tests (if included) MUST be written and FAIL before implementation
+- Add verification first when the spec or risk level requires it
 - Models before services
-- Services before endpoints
+- Services before UI or endpoints
 - Core implementation before integration
-- Story complete before moving to next priority
+- Auditability, role enforcement and manual recovery before story sign-off
+- Story complete before moving advanced automation ahead of priority
 
 ### Parallel Opportunities
 
 - All Setup tasks marked [P] can run in parallel
-- All Foundational tasks marked [P] can run in parallel (within Phase 2)
-- Once Foundational phase completes, all user stories can start in parallel (if team capacity allows)
-- All tests for a user story marked [P] can run in parallel
-- Models within a story marked [P] can run in parallel
-- Different user stories can be worked on in parallel by different team members
+- All Foundational tasks marked [P] can run in parallel within Phase 2
+- Once Foundational phase completes, user stories can proceed in parallel if staffing allows
+- Tests for a user story marked [P] can run in parallel
+- Different user stories can be worked on in parallel by different team members, provided MVP priority is respected
 
 ---
 
 ## Parallel Example: User Story 1
 
 ```bash
-# Launch all tests for User Story 1 together (if tests requested):
-Task: "Contract test for [endpoint] in tests/contract/test_[name].py"
-Task: "Integration test for [user journey] in tests/integration/test_[name].py"
+# Launch verification relevant to the MVP story together:
+Task: "Add verification for the primary journey in tests/[type]/[name]"
+Task: "Add verification for role enforcement or validation edge cases in tests/[type]/[name]"
 
-# Launch all models for User Story 1 together:
-Task: "Create [Entity1] model in src/models/[entity1].py"
-Task: "Create [Entity2] model in src/models/[entity2].py"
+# Launch implementation work on different files together:
+Task: "Create or update the required entity models in [file paths]"
+Task: "Implement the smartphone-first UI or endpoint in [file path]"
 ```
 
 ---
@@ -214,38 +212,37 @@ Task: "Create [Entity2] model in src/models/[entity2].py"
 ### MVP First (User Story 1 Only)
 
 1. Complete Phase 1: Setup
-2. Complete Phase 2: Foundational (CRITICAL - blocks all stories)
+2. Complete Phase 2: Foundational
 3. Complete Phase 3: User Story 1
-4. **STOP and VALIDATE**: Test User Story 1 independently
-5. Deploy/demo if ready
+4. Validate audit trail, role enforcement, smartphone flow and manual recovery
+5. Deploy or demo if ready
 
 ### Incremental Delivery
 
-1. Complete Setup + Foundational → Foundation ready
-2. Add User Story 1 → Test independently → Deploy/Demo (MVP!)
-3. Add User Story 2 → Test independently → Deploy/Demo
-4. Add User Story 3 → Test independently → Deploy/Demo
-5. Each story adds value without breaking previous stories
+1. Complete Setup and Foundational -> foundation ready
+2. Add User Story 1 -> test independently -> deploy or demo MVP
+3. Add User Story 2 -> test independently -> deploy or demo
+4. Add User Story 3 -> test independently -> deploy or demo
+5. Keep advanced automation behind a proven manual baseline
 
 ### Parallel Team Strategy
 
 With multiple developers:
 
-1. Team completes Setup + Foundational together
+1. Team completes Setup and Foundational together
 2. Once Foundational is done:
    - Developer A: User Story 1
    - Developer B: User Story 2
    - Developer C: User Story 3
-3. Stories complete and integrate independently
+3. Integrate only after each story preserves traceability and role boundaries
 
 ---
 
 ## Notes
 
 - [P] tasks = different files, no dependencies
-- [Story] label maps task to specific user story for traceability
+- [Story] label maps task to a specific user story for traceability
 - Each user story should be independently completable and testable
-- Verify tests fail before implementing
-- Commit after each task or logical group
-- Stop at any checkpoint to validate story independently
-- Avoid: vague tasks, same file conflicts, cross-story dependencies that break independence
+- Prefer the simplest operationally sustainable implementation first
+- Do not hide unresolved business rules in code; keep them in the spec
+- Avoid vague tasks, same-file conflicts and automation that ships before the manual baseline

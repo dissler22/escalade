@@ -11,7 +11,7 @@
   IMPORTANT: User stories should be PRIORITIZED as user journeys ordered by importance.
   Each user story/journey must be INDEPENDENTLY TESTABLE - meaning if you implement just ONE of them,
   you should still have a viable MVP (Minimum Viable Product) that delivers value.
-  
+
   Assign priorities (P1, P2, P3, etc.) to each story, where P1 is the most critical.
   Think of each story as a standalone slice of functionality that can be:
   - Developed independently
@@ -22,11 +22,11 @@
 
 ### User Story 1 - [Brief Title] (Priority: P1)
 
-[Describe this user journey in plain language]
+[Describe this user journey in plain language, with the smartphone flow first]
 
-**Why this priority**: [Explain the value and why it has this priority level]
+**Why this priority**: [Explain the value and why this is the MVP slice]
 
-**Independent Test**: [Describe how this can be tested independently - e.g., "Can be fully tested by [specific action] and delivers [specific value]"]
+**Independent Test**: [Describe how this can be tested independently on the web app and what value it delivers]
 
 **Acceptance Scenarios**:
 
@@ -39,7 +39,7 @@
 
 [Describe this user journey in plain language]
 
-**Why this priority**: [Explain the value and why it has this priority level]
+**Why this priority**: [Explain the value and why it comes after P1]
 
 **Independent Test**: [Describe how this can be tested independently]
 
@@ -53,7 +53,7 @@
 
 [Describe this user journey in plain language]
 
-**Why this priority**: [Explain the value and why it has this priority level]
+**Why this priority**: [Explain the value and why it is lower priority]
 
 **Independent Test**: [Describe how this can be tested independently]
 
@@ -68,32 +68,51 @@
 ### Edge Cases
 
 <!--
-  ACTION REQUIRED: The content in this section represents placeholders.
-  Fill them out with the right edge cases.
+  ACTION REQUIRED: Replace the content in this section with feature-specific
+  edge cases, especially those affecting registrations, cancellations,
+  conflicting permissions or degraded manual operation.
 -->
 
-- What happens when [boundary condition]?
-- How does system handle [error scenario]?
+- What happens when a participant tries to register after remaining capacity reaches zero?
+- How does the system behave when an admin must correct a failed registration or cancellation manually?
+- What happens when a role attempts an action not explicitly allowed by the spec?
+- How is the flow handled when connectivity is poor on a smartphone browser?
 
 ## Requirements *(mandatory)*
 
-<!--
-  ACTION REQUIRED: The content in this section represents placeholders.
-  Fill them out with the right functional requirements.
--->
+### Roles & Rules
+
+- **Actor Roles**: [List each role involved in the feature and the actions it may perform]
+- **Explicit Permissions**: [State what each role can view, create, modify, cancel or administer]
+- **Resolved Business Rules**: [List the rules decided by this feature]
+- **Open Business Rules**: [List unresolved rules as NEEDS CLARIFICATION items instead of inventing behavior]
 
 ### Functional Requirements
 
-- **FR-001**: System MUST [specific capability, e.g., "allow users to create accounts"]
-- **FR-002**: System MUST [specific capability, e.g., "validate email addresses"]  
-- **FR-003**: Users MUST be able to [key interaction, e.g., "reset their password"]
-- **FR-004**: System MUST [data requirement, e.g., "persist user preferences"]
-- **FR-005**: System MUST [behavior, e.g., "log all security events"]
+- **FR-001**: System MUST [specific capability aligned with the P1 smartphone flow]
+- **FR-002**: System MUST [specific capability for the responsible role or admin]
+- **FR-003**: System MUST record [audit event] when [registration or cancellation action occurs]
+- **FR-004**: System MUST provide [manual fallback or correction path] for admins when the nominal flow fails
+- **FR-005**: System MUST enforce [permission or validation rule]
 
 *Example of marking unclear requirements:*
 
-- **FR-006**: System MUST authenticate users via [NEEDS CLARIFICATION: auth method not specified - email/password, SSO, OAuth?]
-- **FR-007**: System MUST retain user data for [NEEDS CLARIFICATION: retention period not specified]
+- **FR-006**: System MUST apply [NEEDS CLARIFICATION: reservation priority rule not yet decided]
+- **FR-007**: System MUST retain personal data for [NEEDS CLARIFICATION: retention duration not yet decided]
+
+### Audit & Operations
+
+- **Audit Events**: [List each registration/cancellation/admin correction event that must be traceable]
+- **Operational Procedure**: [Describe the normal admin handling path in plain language]
+- **Manual Recovery**: [Describe how an authorized admin restores a correct state if automation fails]
+- **Cost Impact**: [State any recurring cost introduced; default expectation is zero or near-zero]
+
+### Data & Privacy
+
+- **Collected Data**: [List each data item created, viewed or updated by the feature]
+- **Purpose of Each Data Item**: [Explain why each item is needed for operations]
+- **Access Scope**: [Which roles can access which data]
+- **Retention / Deletion Approach**: [How data is retained, anonymized or deleted]
 
 ### Key Entities *(include if feature involves data)*
 
@@ -104,12 +123,13 @@
 
 <!--
   ACTION REQUIRED: Define measurable success criteria.
-  These must be technology-agnostic and measurable.
+  These must be technology-agnostic, measurable and aligned with smartphone use,
+  operational simplicity and traceability.
 -->
 
 ### Measurable Outcomes
 
-- **SC-001**: [Measurable metric, e.g., "Users can complete account creation in under 2 minutes"]
-- **SC-002**: [Measurable metric, e.g., "System handles 1000 concurrent users without degradation"]
-- **SC-003**: [User satisfaction metric, e.g., "90% of users successfully complete primary task on first attempt"]
-- **SC-004**: [Business metric, e.g., "Reduce support tickets related to [X] by 50%"]
+- **SC-001**: [Primary smartphone user can complete the core flow within a defined time]
+- **SC-002**: [Authorized admin can verify or correct a registration state within a defined time]
+- **SC-003**: [All specified registration/cancellation events are traceable in the audit history]
+- **SC-004**: [Feature runs within the approved zero or near-zero recurring cost envelope]
