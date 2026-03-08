@@ -1,0 +1,20 @@
+[Unit]
+Description=Escalade Gunicorn service
+After=network.target
+
+[Service]
+Type=simple
+User=escalade
+Group=www-data
+WorkingDirectory=/srv/escalade/current/src
+EnvironmentFile=/srv/escalade/shared/config/escalade.env
+Environment=PYTHONPATH=/srv/escalade/current/src
+ExecStart=/bin/bash -lc 'exec /srv/escalade/shared/venv/bin/gunicorn --workers "${GUNICORN_WORKERS:-3}" --bind "${GUNICORN_BIND:-127.0.0.1:8001}" config.wsgi:application'
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+RestartSec=5
+TimeoutStartSec=30
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target
