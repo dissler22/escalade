@@ -12,7 +12,8 @@
         seulement si votre place doit être libérée.
       </p>
     </div>
-    {% for reservation in reservations %}
+    {% for item in reservation_cards %}
+      {% with reservation=item.reservation %}
       <article class="card session-card">
         <div class="session-meta">
           <span class="badge status-success">Réservation confirmée</span>
@@ -22,11 +23,17 @@
         <p class="detail-copy">
           {{ reservation.occurrence.session_date }} · {{ reservation.occurrence.start_time }} - {{ reservation.occurrence.end_time }}
         </p>
-        <form method="post" action="{% url 'bookings:cancel-occurrence' occurrence_id=reservation.occurrence.id %}">
-          {% csrf_token %}
-          <button type="submit" class="secondary">Annuler</button>
-        </form>
+        <div class="actions">
+          <a class="button ghost" href="{{ item.calendar_url }}">Ouvrir dans le calendrier</a>
+          <form method="post" action="{% url 'bookings:cancel-occurrence' occurrence_id=reservation.occurrence.id %}">
+            {% csrf_token %}
+            <input type="hidden" name="week_start" value="{{ item.week_start_iso }}" />
+            <input type="hidden" name="selected_occurrence" value="{{ reservation.occurrence.id }}" />
+            <button type="submit" class="secondary">Annuler</button>
+          </form>
+        </div>
       </article>
+      {% endwith %}
     {% empty %}
       <div class="card empty-state">
         <p class="section-kicker">Aucune inscription</p>

@@ -1,0 +1,48 @@
+<div class="calendar-grid-shell">
+  <div class="calendar-grid" role="region" aria-label="Vue hebdomadaire des séances">
+    {% for day in week.days %}
+      <section class="calendar-day{% if day.is_today %} is-today{% endif %}">
+        <header class="calendar-day__header">
+          <div class="calendar-day__date-pack">
+            <strong class="calendar-day__date">{{ day.date|date:"j" }}</strong>
+            <div class="calendar-day__labels">
+              <span class="calendar-day__weekday">{{ day.date|date:"D" }}</span>
+              <span class="calendar-day__full">{{ day.label_full }}</span>
+            </div>
+          </div>
+        </header>
+
+        {% if day.occurrence_blocks %}
+          <div class="calendar-day__list">
+            {% for block in day.occurrence_blocks %}
+              <a
+                class="calendar-block {{ block.status_class }}{% if block.is_selected %} is-selected{% endif %}"
+                href="{% url 'sessions:session-list' %}?week_start={{ week.week_start_iso }}&selected_occurrence={{ block.occurrence_id }}#session-detail"
+              >
+                <div class="calendar-block__topline">
+                  <span class="calendar-block__time">
+                    {% if block.starts_before_visible_range %}<span aria-hidden="true">‹</span>{% endif %}
+                    {{ block.start_time|time:"H:i" }} - {{ block.end_time|time:"H:i" }}
+                    {% if block.ends_after_visible_range %}<span aria-hidden="true">›</span>{% endif %}
+                  </span>
+                  {% if block.status_label %}
+                    <span class="calendar-block__status">{{ block.status_label }}</span>
+                  {% endif %}
+                </div>
+                <strong class="calendar-block__title">{{ block.display_label_short }}</strong>
+                <div class="calendar-block__bottomline">
+                  <span class="calendar-block__meta">{{ block.remaining_capacity }} place(s)</span>
+                  {% if request.user.can_cover_slots and block.total_slots %}
+                    <span class="calendar-block__meta">{{ block.covered_slots }}/{{ block.total_slots }} resp.</span>
+                  {% endif %}
+                </div>
+              </a>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="calendar-day__empty">Aucune séance</div>
+        {% endif %}
+      </section>
+    {% endfor %}
+  </div>
+</div>

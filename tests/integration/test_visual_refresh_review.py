@@ -21,7 +21,7 @@ def test_visual_refresh_member_pages_share_usmv_markers(client, member_user, ope
     ]
 
     for path in pages:
-        response = client.get(path)
+        response = client.get(path, follow=True)
         assert response.status_code == 200
         html = response.content.decode()
         assert "USM Viroflay Escalade" in html
