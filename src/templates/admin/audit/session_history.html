@@ -1,24 +1,42 @@
 {% extends "base.html" %}
 
 {% block content %}
-  <section class="card">
-    <h1>Historique · {{ occurrence.label }}</h1>
-    <table class="table">
-      <thead>
-        <tr><th>Date</th><th>Action</th><th>Acteur</th><th>Motif</th></tr>
-      </thead>
-      <tbody>
+  <section class="stack-lg">
+    <div class="card page-intro">
+      <p class="page-kicker">Traçabilité</p>
+      <h1 class="page-title">Historique · {{ occurrence.label }}</h1>
+      <p class="page-lead">
+        Consultez la chronologie des actions importantes pour expliquer une situation et vérifier les corrections manuelles.
+      </p>
+    </div>
+
+    <section class="card stack">
+      <div class="section-heading">
+        <div>
+          <p class="section-kicker">Chronologie</p>
+          <h2>Traces de la séance</h2>
+        </div>
+      </div>
+      <div class="timeline">
         {% for entry in history %}
-          <tr>
-            <td>{{ entry.created_at }}</td>
-            <td>{{ entry.action_type }}</td>
-            <td>{% if entry.actor_user %}{{ entry.actor_user.full_name }}{% else %}Systeme{% endif %}</td>
-            <td>{{ entry.reason|default:"-" }}</td>
-          </tr>
+          <article class="timeline-card">
+            <div class="timeline-card__meta">
+              <span class="badge status-neutral">{{ entry.created_at }}</span>
+              <span class="badge status-warning">{{ entry.action_type }}</span>
+            </div>
+            <div class="timeline-card__details">
+              <p><strong>Acteur:</strong> {% if entry.actor_user %}{{ entry.actor_user.full_name }}{% else %}Système{% endif %}</p>
+              <p><strong>Motif:</strong> {{ entry.reason|default:"-" }}</p>
+            </div>
+          </article>
         {% empty %}
-          <tr><td colspan="4">Aucune trace.</td></tr>
+          <div class="card empty-state">
+            <p class="section-kicker">Journal</p>
+            <h2>Aucune trace</h2>
+            <p>Cette séance ne contient pas encore d'événement enregistré.</p>
+          </div>
         {% endfor %}
-      </tbody>
-    </table>
+      </div>
+    </section>
   </section>
 {% endblock %}

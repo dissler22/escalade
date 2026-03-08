@@ -1,27 +1,76 @@
 {% extends "base.html" %}
 
-{% block title %}Detail seance{% endblock %}
+{% block title %}Détail séance{% endblock %}
 
 {% block content %}
-  <section class="card">
-    <span class="badge{% if occurrence.remaining_capacity == 0 %} is-danger{% endif %}">
-      {{ occurrence.remaining_capacity }} place(s) restante(s)
-    </span>
-    <h1>{{ occurrence.label }}</h1>
-    <p>{{ occurrence.session_date }} · {{ occurrence.start_time }} - {{ occurrence.end_time }}</p>
-    <p>Statut: {{ occurrence.get_status_display }}</p>
-    {% if my_reservation %}
-      <form method="post" action="{% url 'bookings:cancel-occurrence' occurrence_id=occurrence.id %}">
-        {% csrf_token %}
-        <button type="submit" class="danger">Annuler ma reservation</button>
-      </form>
-    {% elif occurrence.is_bookable %}
-      <form method="post" action="{% url 'bookings:book-occurrence' occurrence_id=occurrence.id %}">
-        {% csrf_token %}
-        <button type="submit">Reserver ma place</button>
-      </form>
-    {% else %}
-      <p>Cette seance n'est pas reservable actuellement.</p>
-    {% endif %}
+  <section class="stack-lg">
+    <div class="card page-intro">
+      <p class="page-kicker">Fiche séance</p>
+      <h1 class="page-title">{{ occurrence.label }}</h1>
+      <p class="page-lead">{{ occurrence.session_date }} · {{ occurrence.start_time }} - {{ occurrence.end_time }}</p>
+      <div class="meta-list">
+        <span class="meta-pill">USMV Escalade</span>
+        <span class="meta-pill">Repère action principal</span>
+      </div>
+    </div>
+
+    <section class="card stack">
+      <div class="status-line">
+        <span class="badge status-{{ occurrence.status }}">{{ occurrence.get_status_display }}</span>
+        <span class="badge{% if occurrence.remaining_capacity == 0 %} status-danger{% else %} status-open{% endif %}">
+          {{ occurrence.remaining_capacity }} place(s) restante(s) sur {{ occurrence.capacity }}
+        </span>
+      </div>
+
+      <div class="key-stats">
+        <div class="stat-card">
+          <span class="section-kicker">Action</span>
+          <strong>
+            {% if my_reservation %}
+              Réservation enregistrée
+            {% elif occurrence.is_bookable %}
+              Séance réservable
+            {% else %}
+              Réservation indisponible
+            {% endif %}
+          </strong>
+        </div>
+        <div class="stat-card">
+          <span class="section-kicker">Planning</span>
+          <strong>{{ occurrence.session_date }}</strong>
+        </div>
+        <div class="stat-card">
+          <span class="section-kicker">Horaire</span>
+          <strong>{{ occurrence.start_time }} - {{ occurrence.end_time }}</strong>
+        </div>
+      </div>
+
+      <p class="detail-copy">
+        Les règles métier restent identiques: une seule place par adhérent, aucune attente et aucun changement de permission.
+      </p>
+
+      {% if my_reservation %}
+        <form method="post" action="{% url 'bookings:cancel-occurrence' occurrence_id=occurrence.id %}">
+          {% csrf_token %}
+          <button type="submit" class="danger">Annuler ma réservation</button>
+        </form>
+      {% elif occurrence.is_bookable %}
+        <form method="post" action="{% url 'bookings:book-occurrence' occurrence_id=occurrence.id %}">
+          {% csrf_token %}
+          <button type="submit">Réserver ma place</button>
+        </form>
+      {% else %}
+        <div class="card empty-state">
+          <p class="section-kicker">Statut</p>
+          <h2>Cette séance n'est pas réservable actuellement</h2>
+          <p>Le statut, la date ou la capacité restante ne permettent pas une nouvelle inscription.</p>
+        </div>
+      {% endif %}
+
+      <div class="actions">
+        <a class="button secondary" href="{% url 'sessions:session-list' %}">Retour aux séances</a>
+        <a class="button ghost" href="{% url 'bookings:my-reservations' %}">Mes réservations</a>
+      </div>
+    </section>
   </section>
 {% endblock %}

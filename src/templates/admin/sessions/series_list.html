@@ -1,59 +1,88 @@
 {% extends "base.html" %}
 
-{% block title %}Administration des seances{% endblock %}
+{% block title %}Administration des séances{% endblock %}
 
 {% block content %}
-  <section class="stack">
+  <section class="stack-lg">
+    <div class="card page-intro">
+      <p class="page-kicker">Administration</p>
+      <h1 class="page-title">Pilotage des séances</h1>
+      <p class="page-lead">
+        Gère les séries hebdomadaires, les occurrences ponctuelles et les accès aux écrans de correction
+        sans changer les contrôles métier existants.
+      </p>
+    </div>
+
     <div class="card">
       <div class="actions">
-        <a class="button" href="{% url 'sessions_admin:series-create' %}">Nouvelle serie</a>
-        <a class="button secondary" href="{% url 'sessions_admin:occurrence-create' %}">Nouvelle seance</a>
+        <a class="button" href="{% url 'sessions_admin:series-create' %}">Nouvelle série</a>
+        <a class="button secondary" href="{% url 'sessions_admin:occurrence-create' %}">Nouvelle séance</a>
       </div>
     </div>
-    <div class="card">
-      <h2>Series hebdomadaires</h2>
-      <table class="table">
-        <thead>
-          <tr><th>Label</th><th>Jour</th><th>Capacite</th><th></th></tr>
-        </thead>
-        <tbody>
-          {% for item in series_items %}
-            <tr>
-              <td>{{ item.label }}</td>
-              <td>{{ item.get_weekday_display }}</td>
-              <td>{{ item.default_capacity }}</td>
-              <td><a href="{% url 'sessions_admin:series-edit' series_id=item.id %}">Modifier</a></td>
-            </tr>
-          {% empty %}
-            <tr><td colspan="4">Aucune serie.</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-    <div class="card">
-      <h2>Occurrences</h2>
-      <table class="table">
-        <thead>
-          <tr><th>Date</th><th>Label</th><th>Capacite</th><th>Statut</th><th></th></tr>
-        </thead>
-        <tbody>
-          {% for occurrence in occurrences %}
-            <tr>
-              <td>{{ occurrence.session_date }}</td>
-              <td>{{ occurrence.label }}</td>
-              <td>{{ occurrence.capacity }}</td>
-              <td>{{ occurrence.get_status_display }}</td>
-              <td class="actions">
-                <a href="{% url 'sessions_admin:occurrence-edit' occurrence_id=occurrence.id %}">Editer</a>
-                <a href="{% url 'bookings_admin:session-reservations' occurrence_id=occurrence.id %}">Inscrits</a>
-                <a href="{% url 'audit:session-history' occurrence_id=occurrence.id %}">Audit</a>
-              </td>
-            </tr>
-          {% empty %}
-            <tr><td colspan="5">Aucune occurrence.</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
+
+    <section class="card table-card">
+      <div class="section-heading">
+        <div>
+          <p class="section-kicker">Cadres récurrents</p>
+          <h2>Séries hebdomadaires</h2>
+        </div>
+        <p class="section-note">{{ series_items|length }} série(s) configurée(s)</p>
+      </div>
+      <div class="table-wrap">
+        <table class="table table-stack">
+          <thead>
+            <tr><th>Label</th><th>Jour</th><th>Capacité</th><th>Action</th></tr>
+          </thead>
+          <tbody>
+            {% for item in series_items %}
+              <tr>
+                <td data-label="Label">{{ item.label }}</td>
+                <td data-label="Jour">{{ item.get_weekday_display }}</td>
+                <td data-label="Capacité">{{ item.default_capacity }} place(s)</td>
+                <td data-label="Action"><a class="button secondary" href="{% url 'sessions_admin:series-edit' series_id=item.id %}">Modifier</a></td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="4">Aucune série.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card table-card">
+      <div class="section-heading">
+        <div>
+          <p class="section-kicker">Planning immédiat</p>
+          <h2>Occurrences à venir</h2>
+        </div>
+        <p class="section-note">Accès rapide aux éditions, inscrits et traces.</p>
+      </div>
+      <div class="table-wrap">
+        <table class="table table-stack">
+          <thead>
+            <tr><th>Date</th><th>Label</th><th>Capacité</th><th>Statut</th><th>Actions</th></tr>
+          </thead>
+          <tbody>
+            {% for occurrence in occurrences %}
+              <tr>
+                <td data-label="Date">{{ occurrence.session_date }}</td>
+                <td data-label="Label">{{ occurrence.label }}</td>
+                <td data-label="Capacité">{{ occurrence.capacity }} place(s)</td>
+                <td data-label="Statut"><span class="badge status-{{ occurrence.status }}">{{ occurrence.get_status_display }}</span></td>
+                <td data-label="Actions">
+                  <div class="table-actions">
+                    <a class="button secondary" href="{% url 'sessions_admin:occurrence-edit' occurrence_id=occurrence.id %}">Éditer</a>
+                    <a class="button ghost" href="{% url 'bookings_admin:session-reservations' occurrence_id=occurrence.id %}">Inscrits</a>
+                    <a class="button ghost" href="{% url 'audit:session-history' occurrence_id=occurrence.id %}">Audit</a>
+                  </div>
+                </td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="5">Aucune occurrence.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
   </section>
 {% endblock %}

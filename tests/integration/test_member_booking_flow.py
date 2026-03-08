@@ -10,17 +10,38 @@ from bookings.models import Reservation
 def test_member_can_book_and_cancel_flow(client, member_user, open_occurrence):
     client.force_login(member_user)
 
+    session_list = client.get(reverse("sessions:session-list"), HTTP_HOST="34.71.54.146")
+    assert session_list.status_code == 200
+    session_list_html = session_list.content.decode()
+    assert "USM Viroflay Escalade" in session_list_html
+    assert "Repère adhérent" in session_list_html
+    assert "Voir la séance" in session_list_html
+
+    session_detail = client.get(
+        reverse("sessions:session-detail", args=[open_occurrence.pk]),
+        HTTP_HOST="34.71.54.146",
+    )
+    assert session_detail.status_code == 200
+    detail_html = session_detail.content.decode()
+    assert "Réserver ma place" in detail_html
+    assert "place(s) restante(s)" in detail_html
+
     response = client.post(
         reverse("bookings:book-occurrence", args=[open_occurrence.pk]),
         follow=True,
         HTTP_HOST="34.71.54.146",
     )
     assert response.status_code == 200
+    booked_html = response.content.decode()
+    assert "Reservation enregistree." in booked_html
+    assert "Annuler ma réservation" in booked_html
     assert Reservation.objects.active().filter(user=member_user, occurrence=open_occurrence).exists()
 
     response = client.get(reverse("bookings:my-reservations"), HTTP_HOST="34.71.54.146")
     assert response.status_code == 200
-    assert open_occurrence.label in response.content.decode()
+    reservations_html = response.content.decode()
+    assert open_occurrence.label in reservations_html
+    assert "Réservation confirmée" in reservations_html
 
     response = client.post(
         reverse("bookings:cancel-occurrence", args=[open_occurrence.pk]),
@@ -28,6 +49,9 @@ def test_member_can_book_and_cancel_flow(client, member_user, open_occurrence):
         HTTP_HOST="34.71.54.146",
     )
     assert response.status_code == 200
+    cancelled_html = response.content.decode()
+    assert "Reservation annulee." in cancelled_html
+    assert "Vous n'avez aucune réservation active" in cancelled_html
     assert not Reservation.objects.active().filter(user=member_user, occurrence=open_occurrence).exists()
 
 
