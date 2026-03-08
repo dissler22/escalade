@@ -8,69 +8,89 @@
       <p class="page-kicker">Fiche séance</p>
       <h1 class="page-title">{{ occurrence.label }}</h1>
       <p class="page-lead">{{ occurrence.session_date }} · {{ occurrence.start_time }} - {{ occurrence.end_time }}</p>
-      <div class="meta-list">
-        <span class="meta-pill">USMV Escalade</span>
-        <span class="meta-pill">Repère action principal</span>
-      </div>
     </div>
 
     <section class="card stack">
-      <div class="status-line">
-        <span class="badge status-{{ occurrence.status }}">{{ occurrence.get_status_display }}</span>
-        <span class="badge{% if occurrence.remaining_capacity == 0 %} status-danger{% else %} status-open{% endif %}">
-          {{ occurrence.remaining_capacity }} place(s) restante(s) sur {{ occurrence.capacity }}
+      <div class="session-meta">
+        {% if occurrence.remaining_capacity == 0 %}
+          <span class="badge status-danger">Complet</span>
+        {% else %}
+          <span class="badge status-open">{{ occurrence.remaining_capacity }} place(s) restante(s)</span>
+        {% endif %}
+        <span class="badge {% if occurrence.coverage_summary.uncovered %}status-danger{% else %}status-success{% endif %}">
+          {{ occurrence.coverage_summary.covered }}/{{ occurrence.coverage_summary.total }} créneau(x) avec responsable
         </span>
       </div>
 
-      <div class="key-stats">
-        <div class="stat-card">
-          <span class="section-kicker">Action</span>
-          <strong>
-            {% if my_reservation %}
-              Réservation enregistrée
-            {% elif occurrence.is_bookable %}
-              Séance réservable
-            {% else %}
-              Réservation indisponible
-            {% endif %}
-          </strong>
-        </div>
-        <div class="stat-card">
-          <span class="section-kicker">Planning</span>
-          <strong>{{ occurrence.session_date }}</strong>
-        </div>
-        <div class="stat-card">
-          <span class="section-kicker">Horaire</span>
-          <strong>{{ occurrence.start_time }} - {{ occurrence.end_time }}</strong>
-        </div>
-      </div>
-
-      <p class="detail-copy">
-        Les règles métier restent identiques: une seule place par adhérent, aucune attente et aucun changement de permission.
-      </p>
-
-      {% if my_reservation %}
-        <form method="post" action="{% url 'bookings:cancel-occurrence' occurrence_id=occurrence.id %}">
-          {% csrf_token %}
-          <button type="submit" class="danger">Annuler ma réservation</button>
-        </form>
-      {% elif occurrence.is_bookable %}
-        <form method="post" action="{% url 'bookings:book-occurrence' occurrence_id=occurrence.id %}">
-          {% csrf_token %}
-          <button type="submit">Réserver ma place</button>
-        </form>
-      {% else %}
-        <div class="card empty-state">
-          <p class="section-kicker">Statut</p>
-          <h2>Cette séance n'est pas réservable actuellement</h2>
-          <p>Le statut, la date ou la capacité restante ne permettent pas une nouvelle inscription.</p>
-        </div>
-      {% endif %}
-
       <div class="actions">
-        <a class="button secondary" href="{% url 'sessions:session-list' %}">Retour aux séances</a>
-        <a class="button ghost" href="{% url 'bookings:my-reservations' %}">Mes réservations</a>
+        {% if my_reservation %}
+          <form method="post" action="{% url 'bookings:cancel-occurrence' occurrence_id=occurrence.id %}">
+            {% csrf_token %}
+            <button type="submit" class="secondary">Se désinscrire</button>
+          </form>
+        {% elif occurrence.is_bookable %}
+          <form method="post" action="{% url 'bookings:book-occurrence' occurrence_id=occurrence.id %}">
+            {% csrf_token %}
+            <button type="submit">S'inscrire</button>
+          </form>
+        {% else %}
+          <span class="helper-copy">Inscription indisponible.</span>
+        {% endif %}
       </div>
     </section>
+
+    <section class="card stack">
+      <div class="section-heading">
+        <div>
+          <p class="section-kicker">Responsable</p>
+          <h2>Créneaux</h2>
+        </div>
+      </div>
+      <div class="responsable-slot-grid">
+        {% for item in slot_cards %}
+          {% with slot=item.slot my_assignment=item.my_assignment %}
+            <div class="responsable-slot">
+              {% if slot.status == 'cancelled' %}
+                <span class="responsable-pill is-cancelled">
+                  <strong>{{ slot.start_time }} - {{ slot.end_time }}</strong>
+                  <small>Créneau annulé</small>
+                </span>
+              {% elif my_assignment %}
+                <form method="post" action="{% url 'sessions:release-responsibility' slot_id=slot.id %}">
+                  {% csrf_token %}
+                  <button type="submit" class="responsable-pill is-mine">
+                    <strong>{{ slot.start_time }} - {{ slot.end_time }}</strong>
+                    <small>Vous êtes responsable, cliquer pour quitter</small>
+                  </button>
+                </form>
+              {% elif slot.coverage_status == 'covered' %}
+                <span class="responsable-pill is-taken">
+                  <strong>{{ slot.start_time }} - {{ slot.end_time }}</strong>
+                  <small>{{ slot.current_responsable.full_name }}</small>
+                </span>
+              {% elif request.user.can_cover_slots %}
+                <form method="post" action="{% url 'sessions:take-responsibility' slot_id=slot.id %}">
+                  {% csrf_token %}
+                  <button type="submit" class="responsable-pill is-open">
+                    <strong>{{ slot.start_time }} - {{ slot.end_time }}</strong>
+                    <small>Pas de responsable, cliquer pour prendre le créneau</small>
+                  </button>
+                </form>
+              {% else %}
+                <span class="responsable-pill is-open">
+                  <strong>{{ slot.start_time }} - {{ slot.end_time }}</strong>
+                  <small>Pas de responsable</small>
+                </span>
+              {% endif %}
+            </div>
+          {% endwith %}
+        {% endfor %}
+      </div>
+    </section>
+
+    <div class="actions">
+      <a class="button secondary" href="{% url 'sessions:session-list' %}">Retour</a>
+      <a class="button ghost" href="{% url 'bookings:my-reservations' %}">Mes réservations</a>
+    </div>
   </section>
 {% endblock %}

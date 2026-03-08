@@ -4,9 +4,10 @@ from django.core.exceptions import ValidationError
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 
-from .models import Reservation
 from sessions.models import SessionOccurrence
 from sessions.services import list_member_reservations
+
+from .models import Reservation
 from .services import cancel_member_booking, create_member_booking
 
 

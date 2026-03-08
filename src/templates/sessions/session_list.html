@@ -16,25 +16,23 @@
     {% for occurrence in occurrences %}
       <article class="card session-card">
         <div class="session-meta">
-          <span class="badge status-{{ occurrence.status }}">{{ occurrence.get_status_display }}</span>
           {% if occurrence.remaining_capacity == 0 %}
             <span class="badge status-danger">Complet</span>
           {% else %}
             <span class="badge status-open">{{ occurrence.remaining_capacity }} place(s) restante(s)</span>
           {% endif %}
+          <span class="badge {% if occurrence.coverage_summary.uncovered %}status-danger{% else %}status-success{% endif %}">
+            {{ occurrence.coverage_summary.covered }}/{{ occurrence.coverage_summary.total }} responsable(s)
+          </span>
         </div>
         <div class="detail-list">
           <h2 class="session-card__title">
             <a href="{% url 'sessions:session-detail' occurrence_id=occurrence.id %}">{{ occurrence.label }}</a>
           </h2>
           <p class="detail-copy">{{ occurrence.session_date }} · {{ occurrence.start_time }} - {{ occurrence.end_time }}</p>
-          <p class="session-summary">
-            Capacité totale: {{ occurrence.capacity }} place(s). Ouvrez la fiche pour réserver ou vérifier le statut.
-          </p>
         </div>
         <div class="card-actions">
           <a class="button" href="{% url 'sessions:session-detail' occurrence_id=occurrence.id %}">Voir la séance</a>
-          <span class="helper-copy">Réservation et annulation disponibles sur la fiche détail.</span>
         </div>
       </article>
     {% empty %}

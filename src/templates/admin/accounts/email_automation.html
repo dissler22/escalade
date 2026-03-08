@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block title %}Automatisation mails{% endblock %}
+
+{% block content %}
+  <section class="stack-lg">
+    <div class="card page-intro">
+      <p class="page-kicker">Administration des mails</p>
+      <h1 class="page-title">Automatisation des mails</h1>
+      <p class="page-lead">
+        Ajustez les déclencheurs et le texte des mails automatiques de rappel et d'annulation.
+      </p>
+      <div class="meta-list">
+        <span class="meta-pill">Expéditeur actif: {{ notification_sender.sender_email|default:"non configuré" }}</span>
+      </div>
+    </div>
+
+    <section class="card form-card">
+      <div class="section-heading">
+        <div>
+          <p class="section-kicker">Déclencheurs</p>
+          <h2>Jours avant la séance</h2>
+        </div>
+      </div>
+      <form method="post" class="stack">
+        {% csrf_token %}
+        <div class="form-body">{{ form.as_p }}</div>
+        <div class="card surface-card">
+          <p class="section-kicker">Placeholders disponibles</p>
+          <p class="detail-copy">
+            `{session_label}`, `{session_date}`, `{slot_start}`, `{slot_end}`, `{slot_index}`
+          </p>
+        </div>
+        <div class="actions">
+          <button type="submit">Enregistrer</button>
+          <a class="button secondary" href="{% url 'accounts_admin:account-list' %}">Retour aux comptes</a>
+        </div>
+      </form>
+    </section>
+  </section>
+{% endblock %}

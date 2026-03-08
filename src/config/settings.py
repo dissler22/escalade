@@ -1,7 +1,7 @@
 from django.core.exceptions import ImproperlyConfigured
 from pathlib import Path
 
-from .env import get_bool, get_list, get_path, get_str
+from .env import get_bool, get_int, get_list, get_path, get_str
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -32,6 +32,21 @@ APP_ENV_FILE = get_path("APP_ENV_FILE", default=BASE_DIR / ".env")
 APP_DATABASE_PATH = get_path("APP_DATABASE_PATH", default=BASE_DIR / "db.sqlite3")
 APP_STATIC_ROOT = get_path("APP_STATIC_ROOT", default=BASE_DIR / "staticfiles")
 APP_LOG_PATH = get_path("APP_LOG_PATH")
+NOTIFICATION_SENDER_EMAIL = get_str("APP_NOTIFICATION_SENDER_EMAIL", default="")
+EMAIL_BACKEND = get_str(
+    "DJANGO_EMAIL_BACKEND",
+    default="django.core.mail.backends.console.EmailBackend",
+)
+EMAIL_HOST = get_str("DJANGO_EMAIL_HOST", default="")
+EMAIL_PORT = get_int("DJANGO_EMAIL_PORT", default=587)
+EMAIL_HOST_USER = get_str("DJANGO_EMAIL_HOST_USER", default="")
+EMAIL_HOST_PASSWORD = get_str("DJANGO_EMAIL_HOST_PASSWORD", default="")
+EMAIL_USE_TLS = get_bool("DJANGO_EMAIL_USE_TLS", default=True)
+DEFAULT_FROM_EMAIL = NOTIFICATION_SENDER_EMAIL or get_str(
+    "DJANGO_DEFAULT_FROM_EMAIL",
+    default="no-reply@example.invalid",
+)
+SERVER_EMAIL = DEFAULT_FROM_EMAIL
 
 if SECRET_KEY == DEFAULT_SECRET_KEY and not DEBUG:
     raise ImproperlyConfigured("DJANGO_SECRET_KEY must be set outside debug mode.")

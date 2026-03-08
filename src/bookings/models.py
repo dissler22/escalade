@@ -17,6 +17,15 @@ class Reservation(models.Model):
         "club_sessions.SessionOccurrence",
         on_delete=models.CASCADE,
         related_name="reservations",
+        null=True,
+        blank=True,
+    )
+    slot = models.ForeignKey(
+        "club_sessions.SessionSlot",
+        on_delete=models.CASCADE,
+        related_name="reservations",
+        null=True,
+        blank=True,
     )
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -35,11 +44,16 @@ class Reservation(models.Model):
         ordering = ["created_at", "id"]
         constraints = [
             models.UniqueConstraint(
+                fields=["slot", "user"],
+                condition=Q(status="active"),
+                name="unique_active_reservation_per_user_slot",
+            ),
+            models.UniqueConstraint(
                 fields=["occurrence", "user"],
                 condition=Q(status="active"),
-                name="unique_active_reservation_per_user_occurrence",
+                name="unique_active_reservation_per_user_occurrence_v2",
             )
         ]
 
     def __str__(self) -> str:
-        return f"{self.user} / {self.occurrence}"
+        return f"{self.user} / {self.occurrence or self.slot or 'unassigned-reservation'}"

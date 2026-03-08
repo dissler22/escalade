@@ -7,5 +7,6 @@ app_name = "accounts_admin"
 
 urlpatterns = [
     path("", views_admin.account_list, name="account-list"),
+    path("email-automation/", views_admin.email_automation, name="email-automation"),
     path("<int:user_id>/status/", views_admin.update_account_status, name="account-status"),
 ]

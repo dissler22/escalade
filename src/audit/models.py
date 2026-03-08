@@ -28,6 +28,20 @@ class AuditEntry(models.Model):
         null=True,
         blank=True,
     )
+    slot = models.ForeignKey(
+        "club_sessions.SessionSlot",
+        on_delete=models.CASCADE,
+        related_name="audit_entries",
+        null=True,
+        blank=True,
+    )
+    responsible_assignment = models.ForeignKey(
+        "club_sessions.ResponsibleAssignment",
+        on_delete=models.CASCADE,
+        related_name="audit_entries",
+        null=True,
+        blank=True,
+    )
     reason = models.CharField(max_length=255, blank=True)
     metadata_snapshot = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

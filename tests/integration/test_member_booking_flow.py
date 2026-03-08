@@ -23,8 +23,7 @@ def test_member_can_book_and_cancel_flow(client, member_user, open_occurrence):
     )
     assert session_detail.status_code == 200
     detail_html = session_detail.content.decode()
-    assert "Réserver ma place" in detail_html
-    assert "place(s) restante(s)" in detail_html
+    assert "S'inscrire" in detail_html
 
     response = client.post(
         reverse("bookings:book-occurrence", args=[open_occurrence.pk]),
@@ -34,7 +33,7 @@ def test_member_can_book_and_cancel_flow(client, member_user, open_occurrence):
     assert response.status_code == 200
     booked_html = response.content.decode()
     assert "Reservation enregistree." in booked_html
-    assert "Annuler ma réservation" in booked_html
+    assert "Se désinscrire" in booked_html
     assert Reservation.objects.active().filter(user=member_user, occurrence=open_occurrence).exists()
 
     response = client.get(reverse("bookings:my-reservations"), HTTP_HOST="34.71.54.146")

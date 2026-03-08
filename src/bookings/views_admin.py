@@ -12,18 +12,21 @@ from .services import add_manual_booking, remove_manual_booking
 
 
 def admin_required(view_func):
-    return login_required(user_passes_test(lambda user: user.role == "admin")(view_func))
+    return login_required(user_passes_test(lambda user: user.is_admin_role)(view_func))
 
 
 @admin_required
 def session_reservations(request: HttpRequest, occurrence_id: int) -> HttpResponse:
-    occurrence = get_object_or_404(SessionOccurrence, pk=occurrence_id)
-    members = get_user_model().objects.filter(role="member", is_active=True).order_by("full_name")
-    reservations = occurrence.reservations.active().select_related("user")
+    occurrence = get_object_or_404(SessionOccurrence.objects.prefetch_related("reservations__user"), pk=occurrence_id)
+    members = get_user_model().objects.filter(is_active=True).order_by("full_name")
     return render(
         request,
         "admin/bookings/session_reservations.html",
-        {"occurrence": occurrence, "members": members, "reservations": reservations},
+        {
+            "occurrence": occurrence,
+            "members": members,
+            "reservations": list(occurrence.reservations.active().select_related("user")),
+        },
     )
 
 

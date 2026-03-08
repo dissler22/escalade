@@ -8,7 +8,7 @@ from .services import get_occurrence_history
 
 
 def admin_required(view_func):
-    return login_required(user_passes_test(lambda user: user.role == "admin")(view_func))
+    return login_required(user_passes_test(lambda user: user.is_admin_role)(view_func))
 
 
 @admin_required

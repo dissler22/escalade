@@ -6,8 +6,11 @@
       <p class="page-kicker">Administration des accès</p>
       <h1 class="page-title">Comptes</h1>
       <p class="page-lead">
-        Ajustez les rôles et l'activation des comptes sans quitter la liste. Les contrôles et permissions restent inchangés.
+        Ajustez les rôles, l'activation et l'accréditation responsable sans quitter la liste.
       </p>
+      <div class="meta-list">
+        <span class="meta-pill">Adresse d'envoi: {{ notification_sender.sender_email|default:"non configurée" }}</span>
+      </div>
     </div>
 
     <section class="card table-card">
@@ -21,7 +24,7 @@
       <div class="table-wrap">
         <table class="table table-stack">
           <thead>
-            <tr><th>Nom</th><th>Email</th><th>Rôle</th><th>Actif</th><th>Mise à jour</th></tr>
+            <tr><th>Nom</th><th>Email</th><th>Rôle</th><th>Responsable</th><th>Actif</th><th>Mise à jour</th></tr>
           </thead>
           <tbody>
             {% for user in users %}
@@ -31,6 +34,17 @@
                 <td data-label="Rôle">
                   <span class="badge {% if user.role == 'admin' %}status-warning{% else %}status-neutral{% endif %}">
                     {{ user.role }}
+                  </span>
+                </td>
+                <td data-label="Responsable">
+                  <span class="badge {% if user.can_cover_slots %}status-success{% else %}status-neutral{% endif %}">
+                    {% if user.role == "admin" %}
+                      admin couvre aussi
+                    {% elif user.is_responsable_accredited %}
+                      accrédité
+                    {% else %}
+                      non
+                    {% endif %}
                   </span>
                 </td>
                 <td data-label="Actif">
@@ -44,6 +58,10 @@
                     <select name="role" aria-label="Rôle du compte">
                       <option value="member" {% if user.role == "member" %}selected{% endif %}>member</option>
                       <option value="admin" {% if user.role == "admin" %}selected{% endif %}>admin</option>
+                    </select>
+                    <select name="is_responsable_accredited" aria-label="Accréditation responsable">
+                      <option value="true" {% if user.is_responsable_accredited %}selected{% endif %}>responsable</option>
+                      <option value="false" {% if not user.is_responsable_accredited %}selected{% endif %}>non</option>
                     </select>
                     <select name="is_active" aria-label="Activation du compte">
                       <option value="true" {% if user.is_active %}selected{% endif %}>actif</option>

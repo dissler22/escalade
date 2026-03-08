@@ -1,6 +1,7 @@
 from django.contrib.auth.base_user import BaseUserManager
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin
 from django.db import models
+from django.utils import timezone
 
 
 class UserManager(BaseUserManager):
@@ -39,6 +40,15 @@ class User(AbstractBaseUser, PermissionsMixin):
     full_name = models.CharField(max_length=255)
     email = models.EmailField(unique=True)
     role = models.CharField(max_length=20, choices=Role.choices, default=Role.MEMBER)
+    is_responsable_accredited = models.BooleanField(default=False)
+    responsable_accredited_at = models.DateTimeField(null=True, blank=True)
+    responsable_accredited_by = models.ForeignKey(
+        "self",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="granted_responsable_accreditations",
+    )
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     password_state = models.CharField(
@@ -57,6 +67,22 @@ class User(AbstractBaseUser, PermissionsMixin):
     def save(self, *args, **kwargs):
         self.is_staff = self.role == self.Role.ADMIN or self.is_superuser
         super().save(*args, **kwargs)
+
+    @property
+    def is_admin_role(self) -> bool:
+        return self.role == self.Role.ADMIN or self.is_superuser
+
+    @property
+    def can_cover_slots(self) -> bool:
+        return self.is_active and (self.is_admin_role or self.is_responsable_accredited)
+
+    def grant_responsable_accreditation(self, *, actor=None):
+        self.is_responsable_accredited = True
+        self.responsable_accredited_at = timezone.now()
+        self.responsable_accredited_by = actor
+
+    def revoke_responsable_accreditation(self):
+        self.is_responsable_accredited = False
 
     def __str__(self) -> str:
         return self.full_name or self.email

@@ -29,7 +29,7 @@ def _create_booking(*, actor, user, occurrence, action_type, reason=""):
         _validate_member_booking(
             user,
             locked_occurrence,
-            allow_closed_admin=actor.role == "admin",
+            allow_closed_admin=actor.is_admin_role,
         )
         reservation = Reservation.objects.create(
             occurrence=locked_occurrence,
@@ -42,7 +42,6 @@ def _create_booking(*, actor, user, occurrence, action_type, reason=""):
             target_type="reservation",
             target_id=reservation.pk,
             occurrence=locked_occurrence,
-            reservation=reservation,
             reason=reason,
             metadata={"remaining_capacity": locked_occurrence.remaining_capacity, "member_id": user.pk},
         )
@@ -73,7 +72,6 @@ def _cancel_booking(*, actor, user, occurrence, action_type, reason):
             target_type="reservation",
             target_id=reservation.pk,
             occurrence=occurrence,
-            reservation=reservation,
             reason=reason,
             metadata={"remaining_capacity": occurrence.remaining_capacity, "member_id": user.pk},
         )
