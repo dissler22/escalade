@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "Django>=5.2,<6.0",
+    "gunicorn>=23.0,<24.0",
 ]
 
 [project.optional-dependencies]
@@ -18,4 +19,3 @@ dev = [
 DJANGO_SETTINGS_MODULE = "config.settings"
 pythonpath = ["src"]
 testpaths = ["tests"]
-

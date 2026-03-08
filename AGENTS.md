@@ -3,6 +3,8 @@
 Auto-generated from all feature plans. Last updated: 2026-03-07
 
 ## Active Technologies
+- Python 3.12+ dans le repo actuel, cible normalisee sur Python 3.13 pour la VM + Django 5.x, Gunicorn, Nginx, systemd, SQLite standard library support (002-gcp-vm-deploy)
+- SQLite sur repertoire persistant partage de la VM + sauvegardes horodatees sur la meme machine (002-gcp-vm-deploy)
 
 - Python 3.13 + Django 5.x, Django authentication/session framework, PostgreSQL driver (001-free-session-booking)
 
@@ -22,6 +24,7 @@ cd src [ONLY COMMANDS FOR ACTIVE TECHNOLOGIES][ONLY COMMANDS FOR ACTIVE TECHNOLO
 Python 3.13: Follow standard conventions
 
 ## Recent Changes
+- 002-gcp-vm-deploy: Added Python 3.12+ dans le repo actuel, cible normalisee sur Python 3.13 pour la VM + Django 5.x, Gunicorn, Nginx, systemd, SQLite standard library support
 
 - 001-free-session-booking: Added Python 3.13 + Django 5.x, Django authentication/session framework, PostgreSQL driver
 

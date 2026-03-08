@@ -8,6 +8,13 @@
 - les donnees exploitees au quotidien sont limitees au nom affiche, a l'email, au role, au statut d'activation, aux seances, aux reservations et aux traces d'audit
 - les ecrans membre n'exposent que les seances reservables et les reservations du compte courant
 
+## Journal d'exploitation
+
+- consigner chaque premiere mise en ligne, release, rollback et restauration dans `/srv/escalade/shared/log/operations.log`
+- inclure la date, l'operateur, la release active, l'emplacement de sauvegarde et le resultat du smoke test
+- conserver les journaux systeme `journalctl -u escalade` et `journalctl -u nginx` pour la meme fenetre d'incident
+- ne jamais y recopier de mot de passe, de cookie de session ou de secret complet
+
 ## Seances
 
 - creer les series ou occurrences en avance
@@ -26,3 +33,23 @@
 - si la web app est indisponible, tenir une liste temporaire externe
 - des que le service revient, re-saisir les reservations manquantes depuis les ecrans admin
 - verifier ensuite l'historique de la seance pour confirmer la correction
+
+## Fenetre de maintenance
+
+- annoncer une fenetre courte avant toute release qui modifie la base ou les statics
+- prendre une sauvegarde SQLite juste avant de lancer la release
+- interdire toute edition manuelle de la base pendant le deploiement ou le rollback
+
+## Procedure de rollback
+
+1. Identifier la derniere release saine et la sauvegarde associee.
+2. Lancer `scripts/deploy/rollback.sh <release_id_precedent> [backup_file]`.
+3. Verifier `systemctl status escalade`.
+4. Rejouer le smoke test public.
+5. Noter la cause, l'heure de debut, l'heure de fin et les actions correctives dans le journal d'exploitation.
+
+## Retention et minimisation
+
+- ne conserver dans `.env` que les secrets et chemins strictement necessaires au runtime
+- garder les sauvegardes SQLite recentes utiles a la reprise, puis supprimer les plus anciennes selon la place disque disponible
+- conserver le journal d'exploitation et les journaux systeme pour les incidents actifs et les retours d'experience utiles
