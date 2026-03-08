@@ -8,9 +8,11 @@
       <p class="page-kicker">Administration</p>
       <h1 class="page-title">Pilotage des séances</h1>
       <p class="page-lead">
-        Gère les séries hebdomadaires, les occurrences ponctuelles et les accès aux écrans de correction
-        sans changer les contrôles métier existants.
+        Gère les séries hebdomadaires, les séances ponctuelles, le découpage en créneaux et la couverture responsable.
       </p>
+      <div class="meta-list">
+        <span class="meta-pill">Envoi automatique: {{ notification_sender.sender_email|default:"non configuré" }}</span>
+      </div>
     </div>
 
     <div class="card">
@@ -31,7 +33,7 @@
       <div class="table-wrap">
         <table class="table table-stack">
           <thead>
-            <tr><th>Label</th><th>Jour</th><th>Capacité</th><th>Action</th></tr>
+            <tr><th>Label</th><th>Jour</th><th>Capacité</th><th>Actions</th></tr>
           </thead>
           <tbody>
             {% for item in series_items %}
@@ -39,7 +41,15 @@
                 <td data-label="Label">{{ item.label }}</td>
                 <td data-label="Jour">{{ item.get_weekday_display }}</td>
                 <td data-label="Capacité">{{ item.default_capacity }} place(s)</td>
-                <td data-label="Action"><a class="button secondary" href="{% url 'sessions_admin:series-edit' series_id=item.id %}">Modifier</a></td>
+                <td data-label="Actions">
+                  <div class="table-actions">
+                    <a class="button secondary" href="{% url 'sessions_admin:series-edit' series_id=item.id %}">Modifier</a>
+                    <form method="post" action="{% url 'sessions_admin:series-delete' series_id=item.id %}">
+                      {% csrf_token %}
+                      <button type="submit" class="danger">Supprimer</button>
+                    </form>
+                  </div>
+                </td>
               </tr>
             {% empty %}
               <tr><td colspan="4">Aucune série.</td></tr>
@@ -60,20 +70,28 @@
       <div class="table-wrap">
         <table class="table table-stack">
           <thead>
-            <tr><th>Date</th><th>Label</th><th>Capacité</th><th>Statut</th><th>Actions</th></tr>
+            <tr><th>Date</th><th>Label</th><th>Créneaux</th><th>Couverture</th><th>Actions</th></tr>
           </thead>
           <tbody>
             {% for occurrence in occurrences %}
               <tr>
                 <td data-label="Date">{{ occurrence.session_date }}</td>
                 <td data-label="Label">{{ occurrence.label }}</td>
-                <td data-label="Capacité">{{ occurrence.capacity }} place(s)</td>
-                <td data-label="Statut"><span class="badge status-{{ occurrence.status }}">{{ occurrence.get_status_display }}</span></td>
+                <td data-label="Créneaux">{{ occurrence.slots.count }} créneau(x) · {{ occurrence.capacity }} place(s)</td>
+                <td data-label="Couverture">
+                  <span class="badge {% if occurrence.coverage_summary.uncovered %}status-danger{% else %}status-success{% endif %}">
+                    {{ occurrence.coverage_summary.covered }}/{{ occurrence.coverage_summary.total }} créneaux avec responsable
+                  </span>
+                </td>
                 <td data-label="Actions">
                   <div class="table-actions">
                     <a class="button secondary" href="{% url 'sessions_admin:occurrence-edit' occurrence_id=occurrence.id %}">Éditer</a>
                     <a class="button ghost" href="{% url 'bookings_admin:session-reservations' occurrence_id=occurrence.id %}">Inscrits</a>
                     <a class="button ghost" href="{% url 'audit:session-history' occurrence_id=occurrence.id %}">Audit</a>
+                    <form method="post" action="{% url 'sessions_admin:occurrence-delete' occurrence_id=occurrence.id %}">
+                      {% csrf_token %}
+                      <button type="submit" class="danger">Supprimer</button>
+                    </form>
                   </div>
                 </td>
               </tr>

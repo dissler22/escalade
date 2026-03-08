@@ -8,7 +8,9 @@ def record_event(
     target_type,
     target_id,
     occurrence=None,
+    slot=None,
     reservation=None,
+    responsible_assignment=None,
     reason="",
     metadata=None,
 ):
@@ -22,11 +24,18 @@ def record_event(
         target_type=target_type,
         target_id=target_id,
         occurrence=occurrence,
+        slot=slot,
         reservation=reservation,
+        responsible_assignment=responsible_assignment,
         reason=reason,
         metadata_snapshot=metadata or {},
     )
 
 
 def get_occurrence_history(occurrence):
-    return occurrence.audit_entries.select_related("actor_user", "reservation")
+    return occurrence.audit_entries.select_related(
+        "actor_user",
+        "reservation",
+        "slot",
+        "responsible_assignment",
+    )

@@ -1,0 +1,605 @@
+openapi: 3.1.0
+info:
+  title: Escalade Responsable Coverage Contract
+  version: 0.4.1
+  description: |
+    Contrat HTTP de reference pour la gestion des responsables de pratique libre.
+    Il decrit les flux adherent, responsable et administrateur relies aux seances,
+    creneaux, responsabilites, rappels et annulations cibles.
+    Les parcours reels sont rendus par pages HTML serveur, avec des actions de formulaire
+    alignees sur ces ressources de reference.
+servers:
+  - url: https://example.invalid
+paths:
+  /me:
+    get:
+      summary: Recuperer le profil de l utilisateur courant
+      operationId: currentUser
+      responses:
+        "200":
+          description: Profil courant et capacites du role
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurrentUser"
+
+  /sessions:
+    get:
+      summary: Lister les seances a venir avec resume de couverture
+      operationId: listSessions
+      parameters:
+        - in: query
+          name: fromDate
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Liste des seances et de leurs creneaux
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/SessionOccurrenceSummary"
+
+  /sessions/{sessionId}:
+    get:
+      summary: Recuperer le detail d une seance avec ses creneaux
+      operationId: getSessionDetail
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      responses:
+        "200":
+          description: Detail d une seance parent et de ses creneaux
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionOccurrenceDetail"
+        "404":
+          description: Seance introuvable
+
+  /session-slots/{slotId}/reservations:
+    post:
+      summary: Inscrire l utilisateur courant comme pratiquant sur un creneau
+      operationId: createSlotReservation
+      parameters:
+        - $ref: "#/components/parameters/SlotId"
+      responses:
+        "201":
+          description: Inscription creee
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Reservation"
+        "409":
+          description: Creneau non reservable, complet ou deja reserve
+
+    delete:
+      summary: Annuler l inscription pratiquant de l utilisateur courant sur un creneau
+      operationId: cancelSlotReservation
+      parameters:
+        - $ref: "#/components/parameters/SlotId"
+      responses:
+        "204":
+          description: Inscription annulee
+        "404":
+          description: Inscription active introuvable
+
+  /session-slots/{slotId}/responsibility:
+    put:
+      summary: Prendre le role de responsable sur un creneau
+      operationId: takeSlotResponsibility
+      parameters:
+        - $ref: "#/components/parameters/SlotId"
+      responses:
+        "200":
+          description: Responsabilite prise
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponsibleAssignment"
+        "403":
+          description: Utilisateur non accredite responsable
+        "409":
+          description: Creneau deja couvert, annule ou commence
+
+    delete:
+      summary: Abandonner son role de responsable sur un creneau futur
+      operationId: releaseSlotResponsibility
+      parameters:
+        - $ref: "#/components/parameters/SlotId"
+      responses:
+        "204":
+          description: Responsabilite abandonnee
+        "404":
+          description: Aucune responsabilite active pour l utilisateur courant
+
+  /admin/accounts:
+    get:
+      summary: Lister les comptes avec leur statut responsable
+      operationId: listAccountsForResponsibilityAdmin
+      responses:
+        "200":
+          description: Comptes administrables
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AdminAccount"
+
+  /admin/accounts/{userId}/responsable-accreditation:
+    put:
+      summary: Accorder l accreditation responsable a un adherent
+      operationId: grantResponsableAccreditation
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      responses:
+        "200":
+          description: Accreditation accordee
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAccount"
+
+    delete:
+      summary: Retirer l accreditation responsable d un adherent
+      operationId: revokeResponsableAccreditation
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      responses:
+        "200":
+          description: Accreditation retiree et futures affectations revoquees
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAccount"
+
+  /admin/sessions:
+    get:
+      summary: Lister les seances parent avec leur couverture
+      operationId: listAdminSessions
+      responses:
+        "200":
+          description: Liste admin des seances
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/SessionOccurrenceSummary"
+
+    post:
+      summary: Creer une seance parent et ses creneaux automatiques
+      operationId: createSessionOccurrence
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SessionOccurrenceInput"
+      responses:
+        "201":
+          description: Seance creee avec decoupage automatique
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionOccurrenceDetail"
+
+  /admin/sessions/{sessionId}:
+    patch:
+      summary: Modifier une seance parent et recalculer ses creneaux futurs
+      operationId: updateSessionOccurrence
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SessionOccurrencePatch"
+      responses:
+        "200":
+          description: Seance mise a jour
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionOccurrenceDetail"
+
+  /admin/session-slots/{slotId}:
+    patch:
+      summary: Corriger manuellement un creneau futur
+      operationId: patchSessionSlot
+      parameters:
+        - $ref: "#/components/parameters/SlotId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SessionSlotPatch"
+      responses:
+        "200":
+          description: Creneau corrige
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionSlot"
+
+  /admin/session-slots/{slotId}/responsibility:
+    put:
+      summary: Affecter manuellement un responsable a un creneau
+      operationId: assignSlotResponsibilityAsAdmin
+      parameters:
+        - $ref: "#/components/parameters/SlotId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId]
+              properties:
+                userId:
+                  type: integer
+      responses:
+        "200":
+          description: Responsable affecte
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponsibleAssignment"
+
+    delete:
+      summary: Retirer manuellement le responsable d un creneau
+      operationId: revokeSlotResponsibilityAsAdmin
+      parameters:
+        - $ref: "#/components/parameters/SlotId"
+      responses:
+        "204":
+          description: Responsable retire
+
+  /admin/session-slots/{slotId}/status:
+    post:
+      summary: Modifier le statut d un creneau
+      operationId: changeSlotStatus
+      parameters:
+        - $ref: "#/components/parameters/SlotId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [draft, open, closed, cancelled, completed]
+                reason:
+                  type: string
+      responses:
+        "200":
+          description: Statut mis a jour
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionSlot"
+
+  /admin/notifications/email-sender:
+    get:
+      summary: Consulter l adresse d envoi appliquee aux notifications
+      operationId: getNotificationSender
+      responses:
+        "200":
+          description: Adresse applicative visible par l admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationSender"
+
+  /admin/audit/session-slots/{slotId}:
+    get:
+      summary: Consulter l historique d un creneau
+      operationId: getSlotAuditHistory
+      parameters:
+        - $ref: "#/components/parameters/SlotId"
+      responses:
+        "200":
+          description: Historique d audit du creneau
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AuditEntry"
+
+components:
+  parameters:
+    SessionId:
+      name: sessionId
+      in: path
+      required: true
+      schema:
+        type: integer
+    SlotId:
+      name: slotId
+      in: path
+      required: true
+      schema:
+        type: integer
+    UserId:
+      name: userId
+      in: path
+      required: true
+      schema:
+        type: integer
+
+  schemas:
+    CurrentUser:
+      type: object
+      required: [id, fullName, email, role, isResponsableAccredited]
+      properties:
+        id:
+          type: integer
+        fullName:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+          enum: [member, admin]
+        isResponsableAccredited:
+          type: boolean
+
+    AdminAccount:
+      allOf:
+        - $ref: "#/components/schemas/CurrentUser"
+        - type: object
+          properties:
+            responsableAccreditedAt:
+              type: string
+              format: date-time
+              nullable: true
+
+    SessionOccurrenceSummary:
+      type: object
+      required: [id, label, sessionDate, startTime, endTime, status, slotSummaries]
+      properties:
+        id:
+          type: integer
+        label:
+          type: string
+        sessionDate:
+          type: string
+          format: date
+        startTime:
+          type: string
+        endTime:
+          type: string
+        status:
+          type: string
+          enum: [draft, open, closed, cancelled, completed]
+        slotSummaries:
+          type: array
+          items:
+            $ref: "#/components/schemas/SessionSlotSummary"
+
+    SessionOccurrenceDetail:
+      allOf:
+        - $ref: "#/components/schemas/SessionOccurrenceSummary"
+        - type: object
+          required: [slots]
+          properties:
+            notes:
+              type: string
+            slots:
+              type: array
+              items:
+                $ref: "#/components/schemas/SessionSlot"
+
+    SessionOccurrenceInput:
+      type: object
+      required: [label, sessionDate, startTime, endTime, defaultSlotCapacity]
+      properties:
+        label:
+          type: string
+        sessionDate:
+          type: string
+          format: date
+        startTime:
+          type: string
+        endTime:
+          type: string
+        defaultSlotCapacity:
+          type: integer
+          minimum: 1
+        notes:
+          type: string
+        status:
+          type: string
+          enum: [draft, open, closed]
+
+    SessionOccurrencePatch:
+      type: object
+      properties:
+        label:
+          type: string
+        startTime:
+          type: string
+        endTime:
+          type: string
+        notes:
+          type: string
+        status:
+          type: string
+          enum: [draft, open, closed, cancelled]
+        defaultSlotCapacity:
+          type: integer
+          minimum: 1
+
+    SessionSlotSummary:
+      type: object
+      required: [id, startTime, endTime, status, coverageStatus]
+      properties:
+        id:
+          type: integer
+        startTime:
+          type: string
+        endTime:
+          type: string
+        status:
+          type: string
+          enum: [draft, open, closed, cancelled, completed]
+        coverageStatus:
+          type: string
+          enum: [uncovered, covered, cancelled]
+        currentResponsableName:
+          type: string
+          nullable: true
+
+    SessionSlot:
+      allOf:
+        - $ref: "#/components/schemas/SessionSlotSummary"
+        - type: object
+          required: [capacity, remainingCapacity]
+          properties:
+            sequenceIndex:
+              type: integer
+            capacity:
+              type: integer
+            remainingCapacity:
+              type: integer
+            myReservationStatus:
+              type: string
+              enum: [none, active, cancelled]
+            myResponsibilityStatus:
+              type: string
+              enum: [none, active, released]
+            currentResponsable:
+              $ref: "#/components/schemas/ResponsibleUser"
+
+    SessionSlotPatch:
+      type: object
+      properties:
+        startTime:
+          type: string
+        endTime:
+          type: string
+        capacity:
+          type: integer
+          minimum: 1
+        status:
+          type: string
+          enum: [draft, open, closed, cancelled, completed]
+
+    ResponsibleUser:
+      type: object
+      required: [id, fullName]
+      properties:
+        id:
+          type: integer
+        fullName:
+          type: string
+
+    ResponsibleAssignment:
+      type: object
+      required: [id, slotId, user, status, assignedAt]
+      properties:
+        id:
+          type: integer
+        slotId:
+          type: integer
+        user:
+          $ref: "#/components/schemas/ResponsibleUser"
+        status:
+          type: string
+          enum: [active, released, revoked]
+        assignedAt:
+          type: string
+          format: date-time
+        releasedAt:
+          type: string
+          format: date-time
+          nullable: true
+        releaseReason:
+          type: string
+          nullable: true
+
+    Reservation:
+      type: object
+      required: [id, slotId, userId, status, createdAt]
+      properties:
+        id:
+          type: integer
+        slotId:
+          type: integer
+        userId:
+          type: integer
+        status:
+          type: string
+          enum: [active, cancelled]
+        createdAt:
+          type: string
+          format: date-time
+        cancelledAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    NotificationSender:
+      type: object
+      required: [senderEmail, notificationsEnabled]
+      properties:
+        senderEmail:
+          type: string
+          format: email
+        senderDisplayName:
+          type: string
+          nullable: true
+        notificationsEnabled:
+          type: boolean
+
+    AuditEntry:
+      type: object
+      required: [id, actionType, targetType, targetId, createdAt]
+      properties:
+        id:
+          type: integer
+        actionType:
+          type: string
+        targetType:
+          type: string
+        targetId:
+          type: integer
+        actorRoleSnapshot:
+          type: string
+        actorUserId:
+          type: integer
+          nullable: true
+        reason:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        metadataSnapshot:
+          type: object
+          additionalProperties: true

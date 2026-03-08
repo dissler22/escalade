@@ -26,6 +26,9 @@
             </div>
             <div class="timeline-card__details">
               <p><strong>Acteur:</strong> {% if entry.actor_user %}{{ entry.actor_user.full_name }}{% else %}Système{% endif %}</p>
+              {% if entry.slot %}
+                <p><strong>Créneau:</strong> #{{ entry.slot.sequence_index }} · {{ entry.slot.start_time }} - {{ entry.slot.end_time }}</p>
+              {% endif %}
               <p><strong>Motif:</strong> {{ entry.reason|default:"-" }}</p>
             </div>
           </article>

@@ -28,6 +28,12 @@
           <a class="button secondary" href="{% url 'sessions_admin:series-list' %}">Retour au pilotage</a>
         </div>
       </form>
+      {% if series %}
+        <form method="post" action="{% url 'sessions_admin:series-delete' series_id=series.id %}">
+          {% csrf_token %}
+          <button type="submit" class="danger">Supprimer cette série</button>
+        </form>
+      {% endif %}
     </section>
   </section>
 {% endblock %}

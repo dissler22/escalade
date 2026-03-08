@@ -22,6 +22,14 @@ SETTINGS_KEYS = {
     "APP_DATABASE_PATH",
     "APP_STATIC_ROOT",
     "APP_LOG_PATH",
+    "APP_NOTIFICATION_SENDER_EMAIL",
+    "DJANGO_EMAIL_BACKEND",
+    "DJANGO_EMAIL_HOST",
+    "DJANGO_EMAIL_PORT",
+    "DJANGO_EMAIL_HOST_USER",
+    "DJANGO_EMAIL_HOST_PASSWORD",
+    "DJANGO_EMAIL_USE_TLS",
+    "DJANGO_DEFAULT_FROM_EMAIL",
 }
 
 
@@ -90,3 +98,21 @@ def test_proxy_and_csrf_settings_are_externalized(monkeypatch):
     assert settings.SECURE_SSL_REDIRECT is True
     assert settings.SESSION_COOKIE_SECURE is True
     assert settings.CSRF_COOKIE_SECURE is True
+
+
+def test_email_sender_settings_are_externalized(monkeypatch):
+    settings = load_settings(
+        monkeypatch,
+        APP_NOTIFICATION_SENDER_EMAIL="escalade.usmv@gmail.com",
+        DJANGO_EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+        DJANGO_EMAIL_HOST="smtp.gmail.com",
+        DJANGO_EMAIL_PORT="587",
+        DJANGO_EMAIL_HOST_USER="escalade.usmv@gmail.com",
+        DJANGO_EMAIL_HOST_PASSWORD="secret",
+        DJANGO_EMAIL_USE_TLS="true",
+    )
+
+    assert settings.NOTIFICATION_SENDER_EMAIL == "escalade.usmv@gmail.com"
+    assert settings.DEFAULT_FROM_EMAIL == "escalade.usmv@gmail.com"
+    assert settings.EMAIL_PORT == 587
+    assert settings.EMAIL_USE_TLS is True

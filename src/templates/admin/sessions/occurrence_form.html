@@ -8,15 +8,15 @@
       <p class="page-kicker">Administration des séances</p>
       <h1 class="page-title">{{ title }}</h1>
       <p class="page-lead">
-        Ajustez une séance ponctuelle ou une occurrence existante, puis gelez son statut sans
-        quitter l'ecran de gestion.
+        Ajustez la séance parent, laissez le système recalculer les créneaux de 90 minutes max,
+        puis corrigez un créneau précis si nécessaire.
       </p>
     </div>
 
     <section class="card form-card">
       <div class="section-heading">
         <div>
-          <p class="section-kicker">Occurrence</p>
+          <p class="section-kicker">Séance parent</p>
           <h2>Détails et capacité</h2>
         </div>
       </div>
@@ -35,19 +35,107 @@
         <div class="section-heading">
           <div>
             <p class="section-kicker">Contrôle rapide</p>
-            <h2>Mettre à jour le statut</h2>
+            <h2>Mettre à jour le statut de la séance</h2>
           </div>
         </div>
         <form method="post" action="{% url 'sessions_admin:occurrence-status' occurrence_id=form.instance.id %}" class="inline-form">
           {% csrf_token %}
           <select name="status" aria-label="Nouveau statut">
             <option value="open">Ouvrir</option>
-            <option value="closed">Fermer</option>
             <option value="cancelled">Annuler</option>
           </select>
           <input type="text" name="reason" placeholder="Motif optionnel" />
           <button type="submit" class="secondary">Mettre à jour le statut</button>
         </form>
+        <form method="post" action="{% url 'sessions_admin:occurrence-delete' occurrence_id=form.instance.id %}">
+          {% csrf_token %}
+          <button type="submit" class="danger">Supprimer cette séance</button>
+        </form>
+      </section>
+
+      <section class="card table-card">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">Créneaux responsables</p>
+            <h2>Découpage et corrections</h2>
+          </div>
+        </div>
+        <div class="stack">
+          {% for slot in occurrence.slots.all %}
+            <article class="card slot-card slot-card--admin">
+              <div class="session-meta">
+                <span class="badge status-{{ slot.status }}">{{ slot.get_status_display }}</span>
+                <span class="badge {% if slot.coverage_status == 'covered' %}status-success{% elif slot.coverage_status == 'cancelled' %}status-danger{% else %}status-warning{% endif %}">
+                  {% if slot.current_responsable %}
+                    {{ slot.current_responsable.full_name }}
+                  {% elif slot.coverage_status == 'cancelled' %}
+                    créneau annulé
+                  {% else %}
+                    sans responsable
+                  {% endif %}
+                </span>
+              </div>
+
+              <form method="post" action="{% url 'sessions_admin:slot-edit' slot_id=slot.id %}" class="inline-form slot-edit-grid">
+                {% csrf_token %}
+                <label>
+                  Début
+                  <input type="time" name="start_time" value="{{ slot.start_time|time:'H:i' }}" />
+                </label>
+                <label>
+                  Fin
+                  <input type="time" name="end_time" value="{{ slot.end_time|time:'H:i' }}" />
+                </label>
+                <label>
+                  Capacité
+                  <input type="number" name="capacity" min="1" value="{{ slot.capacity }}" />
+                </label>
+                <label>
+                  Statut
+                  <select name="status">
+                    <option value="open" {% if slot.status == "open" %}selected{% endif %}>Open</option>
+                    <option value="cancelled" {% if slot.status == "cancelled" %}selected{% endif %}>Cancelled</option>
+                  </select>
+                </label>
+                <button type="submit" class="secondary">Corriger le créneau</button>
+              </form>
+
+              <div class="table-actions">
+                <form method="post" action="{% url 'sessions_admin:slot-assign-responsable' slot_id=slot.id %}" class="inline-form">
+                  {% csrf_token %}
+                  <select name="user_id">
+                    {% for user in responsable_candidates %}
+                      {% if user.can_cover_slots %}
+                        <option value="{{ user.id }}">{{ user.full_name }} · {{ user.email }}</option>
+                      {% endif %}
+                    {% endfor %}
+                  </select>
+                  <button type="submit">Affecter un responsable</button>
+                </form>
+
+                {% if slot.current_responsable %}
+                  <form method="post" action="{% url 'sessions_admin:slot-release-responsable' slot_id=slot.id %}">
+                    {% csrf_token %}
+                    <button type="submit" class="ghost">Retirer le responsable</button>
+                  </form>
+                {% endif %}
+
+                <form method="post" action="{% url 'sessions_admin:slot-status' slot_id=slot.id %}" class="inline-form">
+                  {% csrf_token %}
+                  <input type="hidden" name="status" value="cancelled" />
+                  <input type="hidden" name="reason" value="admin_manual_slot_cancel" />
+                  <button type="submit" class="danger">Annuler ce créneau</button>
+                </form>
+              </div>
+            </article>
+          {% empty %}
+            <div class="card empty-state">
+              <p class="section-kicker">Découpage</p>
+              <h2>Aucun créneau généré</h2>
+              <p>Enregistrez la séance pour générer les créneaux responsables.</p>
+            </div>
+          {% endfor %}
+        </div>
       </section>
     {% endif %}
   </section>

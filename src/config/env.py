@@ -28,6 +28,13 @@ def get_bool(name: str, default: bool = False) -> bool:
     raise ValueError(f"Environment variable {name} must be a boolean value.")
 
 
+def get_int(name: str, default: int | None = None) -> int | None:
+    value = get_str(name)
+    if value is None:
+        return default
+    return int(value)
+
+
 def get_list(name: str, default: list[str] | None = None) -> list[str]:
     value = get_str(name)
     if value is None:

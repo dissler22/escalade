@@ -286,6 +286,98 @@ form,
   margin-bottom: 0.8rem;
 }
 
+.slot-card {
+  display: grid;
+  gap: 1rem;
+}
+
+.slot-card__actions,
+.table-actions,
+.slot-edit-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: end;
+}
+
+.slot-card--admin {
+  border-style: dashed;
+}
+
+.slot-edit-grid label {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 8rem;
+}
+
+.helper-copy {
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.responsable-slot-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+}
+
+.responsable-slot form {
+  margin: 0;
+}
+
+.responsable-pill {
+  width: 100%;
+  min-height: 3rem;
+  border: 1px solid transparent;
+  border-radius: 16px;
+  font-weight: 800;
+  padding: 0.8rem 0.9rem;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 0.2rem;
+}
+
+.responsable-pill strong,
+.responsable-pill small {
+  display: block;
+}
+
+.responsable-pill small {
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.responsable-pill.is-open {
+  background: var(--danger-soft);
+  color: var(--danger);
+  border-color: rgba(166, 55, 50, 0.25);
+}
+
+.responsable-pill.is-taken {
+  background: var(--success-soft);
+  color: var(--success);
+  border-color: rgba(30, 109, 70, 0.22);
+}
+
+.responsable-pill.is-mine {
+  background: var(--warning-soft);
+  color: var(--brand-navy);
+  border-color: rgba(143, 95, 12, 0.22);
+}
+
+.responsable-pill.is-cancelled {
+  width: 100%;
+  min-height: 3rem;
+  background: #eef1f5;
+  color: var(--muted);
+  border: 1px dashed var(--line);
+  border-radius: 16px;
+}
+
 .section-heading h2 {
   font-size: 1.45rem;
 }

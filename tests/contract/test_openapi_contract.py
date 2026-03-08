@@ -37,3 +37,16 @@ def test_visual_refresh_contract_lists_reviewed_pages_and_markers():
         "responsive-table",
     ]:
         assert required_marker in contract
+
+
+def test_responsable_management_contract_lists_slot_and_admin_paths():
+    contract = Path("specs/004-session-opener-management/contracts/openapi.yaml").read_text()
+    for required_path in [
+        "/sessions",
+        "/sessions/{sessionId}",
+        "/session-slots/{slotId}/reservations",
+        "/session-slots/{slotId}/responsibility",
+        "/admin/accounts/{userId}/responsable-accreditation",
+        "/admin/session-slots/{slotId}/responsibility",
+    ]:
+        assert required_path in contract
