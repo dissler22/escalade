@@ -1,12 +1,33 @@
 {% extends "base.html" %}
 
+{% block title %}{{ title }}{% endblock %}
+
 {% block content %}
-  <section class="card">
-    <h1>{{ title }}</h1>
-    <form method="post">
-      {% csrf_token %}
-      {{ form.as_p }}
-      <button type="submit">Enregistrer</button>
-    </form>
+  <section class="stack-lg">
+    <div class="card page-intro">
+      <p class="page-kicker">Administration des séances</p>
+      <h1 class="page-title">{{ title }}</h1>
+      <p class="page-lead">
+        Configurez un cadre hebdomadaire réutilisable. Le rendu évolue, mais les champs et règles
+        restent ceux de l'administration existante.
+      </p>
+    </div>
+
+    <section class="card form-card">
+      <div class="section-heading">
+        <div>
+          <p class="section-kicker">Série hebdomadaire</p>
+          <h2>Paramétrage</h2>
+        </div>
+      </div>
+      <form method="post">
+        {% csrf_token %}
+        <div class="form-body">{{ form.as_p }}</div>
+        <div class="actions">
+          <button type="submit">Enregistrer</button>
+          <a class="button secondary" href="{% url 'sessions_admin:series-list' %}">Retour au pilotage</a>
+        </div>
+      </form>
+    </section>
   </section>
 {% endblock %}

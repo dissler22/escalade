@@ -40,6 +40,12 @@ def test_public_entry_redirects_to_login_on_public_host(client):
 @pytest.mark.django_db
 @override_settings(DEBUG=False, ALLOWED_HOSTS=["testserver", "34.71.54.146"])
 def test_member_can_log_in_from_public_entry_and_reach_sessions(client, member_user, open_occurrence):
+    login_page = client.get(reverse("accounts:login"), HTTP_HOST="34.71.54.146")
+    assert login_page.status_code == 200
+    login_html = login_page.content.decode()
+    assert "USM Viroflay Escalade" in login_html
+    assert "Entrer avec votre compte club" in login_html
+
     response = client.post(
         reverse("accounts:login"),
         {"email": member_user.email, "password": "memberpass123"},
@@ -47,4 +53,7 @@ def test_member_can_log_in_from_public_entry_and_reach_sessions(client, member_u
         HTTP_HOST="34.71.54.146",
     )
     assert response.status_code == 200
-    assert open_occurrence.label in response.content.decode()
+    html = response.content.decode()
+    assert open_occurrence.label in html
+    assert "Repère adhérent" in html
+    assert "Séances ouvertes" in html

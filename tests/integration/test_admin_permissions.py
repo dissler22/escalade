@@ -16,6 +16,9 @@ def test_admin_can_open_account_admin(client, admin_user):
     client.force_login(admin_user)
     response = client.get(reverse("accounts_admin:account-list"))
     assert response.status_code == 200
+    html = response.content.decode()
+    assert "Gestion des droits" in html
+    assert "Comptes du club" in html
 
 
 @pytest.mark.django_db
@@ -27,5 +30,8 @@ def test_admin_can_disable_account(client, admin_user, member_user):
         follow=True,
     )
     assert response.status_code == 200
+    html = response.content.decode()
+    assert "Compte mis a jour." in html
+    assert "inactif" in html
     updated_user = get_user_model().objects.get(pk=member_user.pk)
     assert updated_user.is_active is False

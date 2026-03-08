@@ -3,35 +3,58 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{% block title %}Escalade{% endblock %}</title>
+    <title>{% block title %}USMV Escalade{% endblock %}</title>
     {% load static %}
     <link rel="stylesheet" href="{% static 'css/app.css' %}" />
   </head>
-  <body>
+  <body class="app-shell{% if request.user.is_authenticated %} is-authenticated role-{{ request.user.role }}{% else %} is-guest{% endif %}">
     <header class="site-header">
-      <div>
-        <a class="brand" href="{% url 'sessions:session-list' %}">Escalade</a>
-        {% if request.user.is_authenticated %}
-          <p class="meta">{{ request.user.full_name }} · {{ request.user.get_role_display }}</p>
-        {% endif %}
+      <div class="site-header__inner">
+        <div class="brand-panel">
+          <p class="eyebrow">Club USMV</p>
+          {% if request.user.is_authenticated %}
+            <a class="brand" href="{% url 'sessions:session-list' %}">USM Viroflay Escalade</a>
+          {% else %}
+            <a class="brand" href="{% url 'accounts:login' %}">USM Viroflay Escalade</a>
+          {% endif %}
+          <p class="brand-subtitle">Réservation des séances de pratique libre</p>
+        </div>
+        <div class="header-meta">
+          {% if request.user.is_authenticated %}
+            <p class="context-label">
+              {% if request.user.role == "admin" %}
+                Repère administrateur
+              {% else %}
+                Repère adhérent
+              {% endif %}
+            </p>
+            <p class="meta">{{ request.user.full_name }} · {{ request.user.get_role_display }}</p>
+          {% else %}
+            <p class="context-label">Accès club</p>
+            <p class="meta">Connexion réservée aux adhérents et aux administrateurs</p>
+          {% endif %}
+        </div>
       </div>
       {% if request.user.is_authenticated %}
-        <nav class="nav">
-          <a href="{% url 'sessions:session-list' %}">Seances</a>
-          <a href="{% url 'bookings:my-reservations' %}">Mes reservations</a>
+        <nav class="nav" aria-label="Navigation principale">
+          <a class="nav-link{% if request.resolver_match.namespace == 'sessions' %} is-current{% endif %}" href="{% url 'sessions:session-list' %}">Séances</a>
+          <a class="nav-link{% if request.resolver_match.namespace == 'bookings' %} is-current{% endif %}" href="{% url 'bookings:my-reservations' %}">Mes réservations</a>
           {% if request.user.role == "admin" %}
-            <a href="{% url 'sessions_admin:series-list' %}">Admin</a>
-            <a href="{% url 'accounts_admin:account-list' %}">Comptes</a>
+            <a class="nav-link{% if request.resolver_match.namespace == 'sessions_admin' or request.resolver_match.namespace == 'bookings_admin' or request.resolver_match.namespace == 'audit' %} is-current{% endif %}" href="{% url 'sessions_admin:series-list' %}">Administration</a>
+            <a class="nav-link{% if request.resolver_match.namespace == 'accounts_admin' %} is-current{% endif %}" href="{% url 'accounts_admin:account-list' %}">Comptes</a>
           {% endif %}
-          <a href="{% url 'accounts:logout' %}">Se deconnecter</a>
+          <a class="nav-link nav-link--quiet" href="{% url 'accounts:logout' %}">Se déconnecter</a>
         </nav>
       {% endif %}
     </header>
-    <main class="page">
+    <main class="page-shell">
       {% if messages %}
-        <ul class="messages">
+        <ul class="messages" aria-label="Messages">
           {% for message in messages %}
-            <li class="message {{ message.tags }}">{{ message }}</li>
+            <li class="message {% if message.tags %}{{ message.tags }}{% endif %}">
+              <span class="message-label">{{ message.tags|default:"info"|capfirst }}</span>
+              <span>{{ message }}</span>
+            </li>
           {% endfor %}
         </ul>
       {% endif %}

@@ -1,24 +1,40 @@
 {% extends "base.html" %}
 
-{% block title %}Mes reservations{% endblock %}
+{% block title %}Mes réservations{% endblock %}
 
 {% block content %}
-  <section class="stack">
-    <div class="card">
-      <h1>Mes reservations</h1>
+  <section class="stack-lg">
+    <div class="card page-intro">
+      <p class="page-kicker">Suivi adhérent</p>
+      <h1 class="page-title">Mes réservations</h1>
+      <p class="page-lead">
+        Retrouvez vos inscriptions actives, vérifiez les prochaines dates et annulez
+        seulement si votre place doit être libérée.
+      </p>
     </div>
     {% for reservation in reservations %}
-      <article class="card">
-        <h2>{{ reservation.occurrence.label }}</h2>
-        <p>{{ reservation.occurrence.session_date }} · {{ reservation.occurrence.start_time }} - {{ reservation.occurrence.end_time }}</p>
+      <article class="card session-card">
+        <div class="session-meta">
+          <span class="badge status-success">Réservation confirmée</span>
+          <span class="badge status-open">{{ reservation.occurrence.remaining_capacity }} place(s) restante(s)</span>
+        </div>
+        <h2 class="item-title">{{ reservation.occurrence.label }}</h2>
+        <p class="detail-copy">
+          {{ reservation.occurrence.session_date }} · {{ reservation.occurrence.start_time }} - {{ reservation.occurrence.end_time }}
+        </p>
         <form method="post" action="{% url 'bookings:cancel-occurrence' occurrence_id=reservation.occurrence.id %}">
           {% csrf_token %}
           <button type="submit" class="secondary">Annuler</button>
         </form>
       </article>
     {% empty %}
-      <div class="card">
-        <p>Vous n'avez aucune reservation active.</p>
+      <div class="card empty-state">
+        <p class="section-kicker">Aucune inscription</p>
+        <h2>Vous n'avez aucune réservation active</h2>
+        <p>Consultez les séances ouvertes pour réserver une prochaine pratique libre.</p>
+        <div class="actions">
+          <a class="button" href="{% url 'sessions:session-list' %}">Voir les séances</a>
+        </div>
       </div>
     {% endfor %}
   </section>

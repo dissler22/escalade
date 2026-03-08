@@ -1,36 +1,62 @@
 {% extends "base.html" %}
 
 {% block content %}
-  <section class="card">
-    <h1>Comptes</h1>
-    <table class="table">
-      <thead>
-        <tr><th>Nom</th><th>Email</th><th>Role</th><th>Actif</th><th></th></tr>
-      </thead>
-      <tbody>
-        {% for user in users %}
-          <tr>
-            <td>{{ user.full_name }}</td>
-            <td>{{ user.email }}</td>
-            <td>{{ user.role }}</td>
-            <td>{{ user.is_active|yesno:"oui,non" }}</td>
-            <td>
-              <form method="post" action="{% url 'accounts_admin:account-status' user_id=user.id %}" class="inline-form">
-                {% csrf_token %}
-                <select name="role">
-                  <option value="member" {% if user.role == "member" %}selected{% endif %}>member</option>
-                  <option value="admin" {% if user.role == "admin" %}selected{% endif %}>admin</option>
-                </select>
-                <select name="is_active">
-                  <option value="true" {% if user.is_active %}selected{% endif %}>actif</option>
-                  <option value="false" {% if not user.is_active %}selected{% endif %}>inactif</option>
-                </select>
-                <button type="submit" class="secondary">Mettre a jour</button>
-              </form>
-            </td>
-          </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+  <section class="stack-lg">
+    <div class="card page-intro">
+      <p class="page-kicker">Administration des accès</p>
+      <h1 class="page-title">Comptes</h1>
+      <p class="page-lead">
+        Ajustez les rôles et l'activation des comptes sans quitter la liste. Les contrôles et permissions restent inchangés.
+      </p>
+    </div>
+
+    <section class="card table-card">
+      <div class="section-heading">
+        <div>
+          <p class="section-kicker">Gestion des droits</p>
+          <h2>Comptes du club</h2>
+        </div>
+        <p class="section-note">{{ users|length }} compte(s) visibles</p>
+      </div>
+      <div class="table-wrap">
+        <table class="table table-stack">
+          <thead>
+            <tr><th>Nom</th><th>Email</th><th>Rôle</th><th>Actif</th><th>Mise à jour</th></tr>
+          </thead>
+          <tbody>
+            {% for user in users %}
+              <tr>
+                <td data-label="Nom">{{ user.full_name }}</td>
+                <td data-label="Email">{{ user.email }}</td>
+                <td data-label="Rôle">
+                  <span class="badge {% if user.role == 'admin' %}status-warning{% else %}status-neutral{% endif %}">
+                    {{ user.role }}
+                  </span>
+                </td>
+                <td data-label="Actif">
+                  <span class="badge {% if user.is_active %}status-success{% else %}status-danger{% endif %}">
+                    {{ user.is_active|yesno:"actif,inactif" }}
+                  </span>
+                </td>
+                <td data-label="Mise à jour">
+                  <form method="post" action="{% url 'accounts_admin:account-status' user_id=user.id %}" class="inline-form">
+                    {% csrf_token %}
+                    <select name="role" aria-label="Rôle du compte">
+                      <option value="member" {% if user.role == "member" %}selected{% endif %}>member</option>
+                      <option value="admin" {% if user.role == "admin" %}selected{% endif %}>admin</option>
+                    </select>
+                    <select name="is_active" aria-label="Activation du compte">
+                      <option value="true" {% if user.is_active %}selected{% endif %}>actif</option>
+                      <option value="false" {% if not user.is_active %}selected{% endif %}>inactif</option>
+                    </select>
+                    <button type="submit" class="secondary">Mettre à jour</button>
+                  </form>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
   </section>
 {% endblock %}

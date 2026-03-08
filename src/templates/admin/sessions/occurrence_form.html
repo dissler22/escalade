@@ -1,24 +1,54 @@
 {% extends "base.html" %}
 
+{% block title %}{{ title }}{% endblock %}
+
 {% block content %}
-  <section class="card">
-    <h1>{{ title }}</h1>
-    <form method="post">
-      {% csrf_token %}
-      {{ form.as_p }}
-      <button type="submit">Enregistrer</button>
-    </form>
-    {% if form.instance.pk %}
-      <form method="post" action="{% url 'sessions_admin:occurrence-status' occurrence_id=form.instance.id %}" class="inline-form">
+  <section class="stack-lg">
+    <div class="card page-intro">
+      <p class="page-kicker">Administration des séances</p>
+      <h1 class="page-title">{{ title }}</h1>
+      <p class="page-lead">
+        Ajustez une séance ponctuelle ou une occurrence existante, puis gelez son statut sans
+        quitter l'ecran de gestion.
+      </p>
+    </div>
+
+    <section class="card form-card">
+      <div class="section-heading">
+        <div>
+          <p class="section-kicker">Occurrence</p>
+          <h2>Détails et capacité</h2>
+        </div>
+      </div>
+      <form method="post">
         {% csrf_token %}
-        <select name="status">
-          <option value="open">Ouvrir</option>
-          <option value="closed">Fermer</option>
-          <option value="cancelled">Annuler</option>
-        </select>
-        <input type="text" name="reason" placeholder="Motif optionnel" />
-        <button type="submit" class="secondary">Mettre a jour le statut</button>
+        <div class="form-body">{{ form.as_p }}</div>
+        <div class="actions">
+          <button type="submit">Enregistrer</button>
+          <a class="button secondary" href="{% url 'sessions_admin:series-list' %}">Retour au pilotage</a>
+        </div>
       </form>
+    </section>
+
+    {% if form.instance.pk %}
+      <section class="card form-card">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">Contrôle rapide</p>
+            <h2>Mettre à jour le statut</h2>
+          </div>
+        </div>
+        <form method="post" action="{% url 'sessions_admin:occurrence-status' occurrence_id=form.instance.id %}" class="inline-form">
+          {% csrf_token %}
+          <select name="status" aria-label="Nouveau statut">
+            <option value="open">Ouvrir</option>
+            <option value="closed">Fermer</option>
+            <option value="cancelled">Annuler</option>
+          </select>
+          <input type="text" name="reason" placeholder="Motif optionnel" />
+          <button type="submit" class="secondary">Mettre à jour le statut</button>
+        </form>
+      </section>
     {% endif %}
   </section>
 {% endblock %}

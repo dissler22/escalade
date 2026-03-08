@@ -1,18 +1,28 @@
 {% extends "base.html" %}
 
 {% block content %}
-  <section class="stack">
-    <div class="card">
-      <h1>Inscrits · {{ occurrence.label }}</h1>
-      <p>{{ occurrence.session_date }} · {{ occurrence.start_time }} - {{ occurrence.end_time }}</p>
-      <p>{{ occurrence.remaining_capacity }} place(s) restante(s)</p>
+  <section class="stack-lg">
+    <div class="card page-intro">
+      <p class="page-kicker">Corrections manuelles</p>
+      <h1 class="page-title">Inscrits · {{ occurrence.label }}</h1>
+      <p class="page-lead">{{ occurrence.session_date }} · {{ occurrence.start_time }} - {{ occurrence.end_time }}</p>
+      <div class="meta-list">
+        <span class="meta-pill">{{ occurrence.remaining_capacity }} place(s) restante(s)</span>
+        <span class="meta-pill">Correction admin tracée</span>
+      </div>
     </div>
-    <div class="card">
-      <h2>Ajouter manuellement</h2>
+
+    <div class="card form-card">
+      <div class="section-heading">
+        <div>
+          <p class="section-kicker">Ajout manuel</p>
+          <h2>Ajouter manuellement</h2>
+        </div>
+      </div>
       <form method="post" action="{% url 'bookings_admin:add-reservation' occurrence_id=occurrence.id %}">
         {% csrf_token %}
         <label>
-          Adherent
+          Adhérent
           <select name="user_id">
             {% for member in members %}
               <option value="{{ member.id }}">{{ member.full_name }} · {{ member.email }}</option>
@@ -22,29 +32,38 @@
         <button type="submit">Ajouter</button>
       </form>
     </div>
-    <div class="card">
-      <h2>Reservations actives</h2>
-      <table class="table">
-        <thead>
-          <tr><th>Nom</th><th>Email</th><th></th></tr>
-        </thead>
-        <tbody>
-          {% for reservation in reservations %}
-            <tr>
-              <td>{{ reservation.user.full_name }}</td>
-              <td>{{ reservation.user.email }}</td>
-              <td>
-                <form method="post" action="{% url 'bookings_admin:remove-reservation' occurrence_id=occurrence.id user_id=reservation.user.id %}">
-                  {% csrf_token %}
-                  <button type="submit" class="danger">Retirer</button>
-                </form>
-              </td>
-            </tr>
-          {% empty %}
-            <tr><td colspan="3">Aucune reservation active.</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
+
+    <div class="card table-card">
+      <div class="section-heading">
+        <div>
+          <p class="section-kicker">Réservations</p>
+          <h2>Réservations actives</h2>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="table table-stack">
+          <thead>
+            <tr><th>Nom</th><th>Email</th><th>Statut</th><th>Action</th></tr>
+          </thead>
+          <tbody>
+            {% for reservation in reservations %}
+              <tr>
+                <td data-label="Nom">{{ reservation.user.full_name }}</td>
+                <td data-label="Email">{{ reservation.user.email }}</td>
+                <td data-label="Statut"><span class="badge status-success">Inscrit</span></td>
+                <td data-label="Action">
+                  <form method="post" action="{% url 'bookings_admin:remove-reservation' occurrence_id=occurrence.id user_id=reservation.user.id %}">
+                    {% csrf_token %}
+                    <button type="submit" class="danger">Retirer</button>
+                  </form>
+                </td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="4">Aucune réservation active.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
     </div>
   </section>
 {% endblock %}
