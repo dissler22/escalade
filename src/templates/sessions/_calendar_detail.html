@@ -1,0 +1,111 @@
+<section class="card calendar-detail" id="session-detail">
+  <div class="section-heading">
+    <div>
+      <p class="section-kicker">Détail séance</p>
+      <h2>{{ selected_detail.title }}</h2>
+    </div>
+    <div class="actions">
+      <a class="button ghost" href="{% url 'bookings:my-reservations' %}">Mes réservations</a>
+    </div>
+  </div>
+
+  <div class="session-meta">
+    {% if selected_detail.status_label %}
+      <span class="badge {{ selected_detail.status_class }}">{{ selected_detail.status_label }}</span>
+    {% endif %}
+    <span class="badge status-open">{{ selected_detail.remaining_capacity_label }}</span>
+    {% if request.user.can_cover_slots %}
+      <span class="badge status-neutral">{{ selected_detail.coverage_summary_label }}</span>
+    {% endif %}
+  </div>
+
+  <div class="calendar-detail__summary">
+    <div class="stat-card">
+      <span class="section-kicker">Date</span>
+      <strong>{{ selected_detail.date_label }}</strong>
+    </div>
+    <div class="stat-card">
+      <span class="section-kicker">Horaire</span>
+      <strong>{{ selected_detail.time_label }}</strong>
+    </div>
+  </div>
+
+  {% if selected_detail.notes %}
+    <div class="calendar-detail__notes">
+      <p class="section-kicker">Informations utiles</p>
+      <p class="detail-copy">{{ selected_detail.notes }}</p>
+    </div>
+  {% endif %}
+
+  <div class="actions">
+    {% if selected_detail.can_cancel %}
+      <form method="post" action="{% url 'bookings:cancel-occurrence' occurrence_id=selected_detail.occurrence_id %}">
+        {% csrf_token %}
+        <input type="hidden" name="week_start" value="{{ selected_detail.week_start_iso }}" />
+        <input type="hidden" name="selected_occurrence" value="{{ selected_detail.occurrence_id }}" />
+        <button type="submit" class="secondary">Se désinscrire</button>
+      </form>
+    {% elif selected_detail.can_reserve %}
+      <form method="post" action="{% url 'bookings:book-occurrence' occurrence_id=selected_detail.occurrence_id %}">
+        {% csrf_token %}
+        <input type="hidden" name="week_start" value="{{ selected_detail.week_start_iso }}" />
+        <input type="hidden" name="selected_occurrence" value="{{ selected_detail.occurrence_id }}" />
+        <button type="submit">S'inscrire</button>
+      </form>
+    {% else %}
+      <span class="helper-copy">Inscription indisponible depuis cette séance.</span>
+    {% endif %}
+  </div>
+
+  <section class="stack">
+    <div class="section-heading">
+      <div>
+        <p class="section-kicker">Responsable</p>
+        <h3>Créneaux</h3>
+      </div>
+      <p class="section-note">Un seul détail reste ouvert pour garder la semaine lisible.</p>
+    </div>
+    <div class="responsable-slot-grid">
+      {% for item in selected_detail.slot_cards %}
+        <div class="responsable-slot">
+          {% if item.coverage_status == 'cancelled' %}
+            <span class="responsable-pill is-cancelled">
+              <strong>{{ item.time_label }}</strong>
+              <small>{{ item.coverage_label }}</small>
+            </span>
+          {% elif item.can_release %}
+            <form method="post" action="{% url 'sessions:release-responsibility' slot_id=item.slot_id %}">
+              {% csrf_token %}
+              <input type="hidden" name="week_start" value="{{ selected_detail.week_start_iso }}" />
+              <input type="hidden" name="selected_occurrence" value="{{ selected_detail.occurrence_id }}" />
+              <button type="submit" class="responsable-pill is-mine">
+                <strong>{{ item.time_label }}</strong>
+                <small>{{ item.coverage_label }}</small>
+              </button>
+            </form>
+          {% elif item.can_take %}
+            <form method="post" action="{% url 'sessions:take-responsibility' slot_id=item.slot_id %}">
+              {% csrf_token %}
+              <input type="hidden" name="week_start" value="{{ selected_detail.week_start_iso }}" />
+              <input type="hidden" name="selected_occurrence" value="{{ selected_detail.occurrence_id }}" />
+              <button type="submit" class="responsable-pill is-open">
+                <strong>{{ item.time_label }}</strong>
+                <small>{{ item.coverage_label }}</small>
+              </button>
+            </form>
+          {% elif item.current_responsable_name %}
+            <span class="responsable-pill is-taken">
+              <strong>{{ item.time_label }}</strong>
+              <small>{{ item.current_responsable_name }}</small>
+            </span>
+          {% else %}
+            <span class="responsable-pill is-open">
+              <strong>{{ item.time_label }}</strong>
+              <small>{{ item.coverage_label }}</small>
+            </span>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+</section>

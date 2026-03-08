@@ -8,39 +8,41 @@
       <p class="page-kicker">Parcours adhérent</p>
       <h1 class="page-title">Séances ouvertes</h1>
       <p class="page-lead">
-        Consultez les prochaines séances de pratique libre, repérez leur statut et
-        ouvrez chaque fiche pour réserver une place.
+        Consultez la semaine par jour, repérez rapidement les séances utiles, puis
+        utilisez le détail juste en dessous sans multiplier les changements de page.
       </p>
+      <div class="meta-list">
+        <span class="meta-pill">{{ week.week_start|date:"j M" }} - {{ week.week_end|date:"j M" }}</span>
+        <span class="meta-pill">Une seule semaine, plusieurs séances par jour si besoin</span>
+      </div>
     </div>
 
-    {% for occurrence in occurrences %}
-      <article class="card session-card">
-        <div class="session-meta">
-          {% if occurrence.remaining_capacity == 0 %}
-            <span class="badge status-danger">Complet</span>
-          {% else %}
-            <span class="badge status-open">{{ occurrence.remaining_capacity }} place(s) restante(s)</span>
-          {% endif %}
-          <span class="badge {% if occurrence.coverage_summary.uncovered %}status-danger{% else %}status-success{% endif %}">
-            {{ occurrence.coverage_summary.covered }}/{{ occurrence.coverage_summary.total }} responsable(s)
-          </span>
+    <section class="card calendar-shell">
+      <div class="calendar-toolbar">
+        <div>
+          <p class="section-kicker">Planning hebdomadaire</p>
+          <h2 class="section-title">Semaine du {{ week.week_start|date:"j F" }}</h2>
+          <p class="section-note">Vue compacte par jour, sans colonne horaire vide.</p>
         </div>
-        <div class="detail-list">
-          <h2 class="session-card__title">
-            <a href="{% url 'sessions:session-detail' occurrence_id=occurrence.id %}">{{ occurrence.label }}</a>
-          </h2>
-          <p class="detail-copy">{{ occurrence.session_date }} · {{ occurrence.start_time }} - {{ occurrence.end_time }}</p>
+        <div class="actions">
+          <a class="button secondary" href="{% url 'sessions:session-list' %}?week_start={{ week.previous_week_start_iso }}">Semaine précédente</a>
+          <a class="button secondary" href="{% url 'sessions:session-list' %}?week_start={{ week.next_week_start_iso }}">Semaine suivante</a>
         </div>
-        <div class="card-actions">
-          <a class="button" href="{% url 'sessions:session-detail' occurrence_id=occurrence.id %}">Voir la séance</a>
-        </div>
-      </article>
-    {% empty %}
-      <div class="card empty-state">
-        <p class="section-kicker">Disponibilité</p>
-        <h2>Aucune séance ouverte pour le moment</h2>
-        <p>Revenez plus tard ou contactez l'administration si vous attendez une ouverture.</p>
       </div>
-    {% endfor %}
+
+      {% if calendar_page.has_occurrences %}
+        {% include "sessions/_calendar_grid.html" %}
+      {% else %}
+        <div class="empty-state calendar-empty-state">
+          <p class="section-kicker">Disponibilité</p>
+          <h2>Aucune séance visible sur cette semaine</h2>
+          <p>{{ calendar_page.empty_state_message }}</p>
+        </div>
+      {% endif %}
+    </section>
+
+    {% if selected_detail %}
+      {% include "sessions/_calendar_detail.html" %}
+    {% endif %}
   </section>
 {% endblock %}

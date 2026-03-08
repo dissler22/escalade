@@ -3,15 +3,49 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.http import Http404, HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 
 from .models import ResponsibleAssignment, SessionOccurrence, SessionSlot
-from .services import list_member_open_occurrences, take_slot_responsibility, release_slot_responsibility
+from .services import (
+    build_member_calendar_page,
+    build_member_calendar_url,
+    release_slot_responsibility,
+    resolve_calendar_return_context,
+    take_slot_responsibility,
+)
+
+
+def _redirect_to_calendar(request: HttpRequest, *, occurrence: SessionOccurrence, anchor: str = "session-detail") -> HttpResponse:
+    context = resolve_calendar_return_context(
+        week_start_value=request.POST.get("week_start") or request.GET.get("week_start"),
+        selected_occurrence_value=request.POST.get("selected_occurrence") or request.GET.get("selected_occurrence"),
+        occurrence=occurrence,
+    )
+    return redirect(
+        build_member_calendar_url(
+            week_start=context["week_start"],
+            selected_occurrence=context["selected_occurrence"],
+            anchor=anchor,
+        )
+    )
 
 
 @login_required
 def session_list(request: HttpRequest) -> HttpResponse:
-    occurrences = list_member_open_occurrences()
-    return render(request, "sessions/session_list.html", {"occurrences": occurrences})
+    calendar_page = build_member_calendar_page(
+        user=request.user,
+        week_start_value=request.GET.get("week_start"),
+        selected_occurrence_value=request.GET.get("selected_occurrence"),
+    )
+    return render(
+        request,
+        "sessions/session_list.html",
+        {
+            "calendar_page": calendar_page,
+            "week": calendar_page.week,
+            "selected_detail": calendar_page.selected_detail,
+        },
+    )
 
 
 @login_required
@@ -23,31 +57,16 @@ def session_detail(request: HttpRequest, occurrence_id: int) -> HttpResponse:
         ),
         pk=occurrence_id,
     )
+    if occurrence.ends_at > timezone.now():
+        return redirect(build_member_calendar_url(occurrence=occurrence, anchor="session-detail"))
     if occurrence.status == SessionOccurrence.Status.CANCELLED and not request.user.is_admin_role:
         raise Http404()
-
-    my_reservation = request.user.reservations.active().filter(occurrence=occurrence).first()
-    my_assignments = {
-        assignment.slot_id: assignment
-        for assignment in request.user.responsable_assignments.filter(
-            slot__occurrence=occurrence,
-            status=ResponsibleAssignment.Status.ACTIVE,
-        )
-    }
-    slot_cards = [
-        {
-            "slot": slot,
-            "my_assignment": my_assignments.get(slot.id),
-        }
-        for slot in occurrence.slots.all()
-    ]
     return render(
         request,
         "sessions/session_detail.html",
         {
             "occurrence": occurrence,
-            "my_reservation": my_reservation,
-            "slot_cards": slot_cards,
+            "calendar_url": build_member_calendar_url(),
         },
     )
 
@@ -62,7 +81,7 @@ def take_responsibility(request: HttpRequest, slot_id: int) -> HttpResponse:
             messages.error(request, exc.message)
         else:
             messages.success(request, "Responsabilite prise sur le creneau.")
-    return redirect("sessions:session-detail", occurrence_id=slot.occurrence_id)
+    return _redirect_to_calendar(request, occurrence=slot.occurrence)
 
 
 @login_required
@@ -77,4 +96,4 @@ def release_responsibility(request: HttpRequest, slot_id: int) -> HttpResponse:
             messages.error(request, exc.message)
         else:
             messages.success(request, "Responsabilite retiree sur le creneau.")
-    return redirect("sessions:session-detail", occurrence_id=slot.occurrence_id)
+    return _redirect_to_calendar(request, occurrence=slot.occurrence)

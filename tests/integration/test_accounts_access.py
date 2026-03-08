@@ -54,6 +54,6 @@ def test_member_can_log_in_from_public_entry_and_reach_sessions(client, member_u
     )
     assert response.status_code == 200
     html = response.content.decode()
-    assert open_occurrence.label in html
     assert "Repère adhérent" in html
     assert "Séances ouvertes" in html
+    assert "Planning hebdomadaire" in html

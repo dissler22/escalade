@@ -1,11 +1,14 @@
 import datetime as dt
+from dataclasses import dataclass
+from urllib.parse import urlencode
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.mail import send_mail
 from django.db import transaction
 from django.db.models import Prefetch, Q
-from django.utils import timezone
+from django.urls import reverse
+from django.utils import formats, timezone
 
 from audit.services import record_event
 from bookings.models import Reservation
@@ -18,6 +21,448 @@ from .models import (
     SessionSeries,
     SessionSlot,
 )
+
+VISIBLE_DAY_START = dt.time(hour=8, minute=0)
+VISIBLE_DAY_END = dt.time(hour=23, minute=0)
+VISIBLE_RANGE_MINUTES = (
+    VISIBLE_DAY_END.hour * 60
+    + VISIBLE_DAY_END.minute
+    - VISIBLE_DAY_START.hour * 60
+    - VISIBLE_DAY_START.minute
+)
+
+
+@dataclass(slots=True)
+class CalendarOccurrenceBlock:
+    occurrence: SessionOccurrence
+    occurrence_id: int
+    display_label_short: str
+    status_label: str
+    status_class: str
+    start_time: dt.time
+    end_time: dt.time
+    time_label: str
+    starts_before_visible_range: bool
+    ends_after_visible_range: bool
+    is_selected: bool
+    is_bookable: bool
+    remaining_capacity: int
+    covered_slots: int
+    total_slots: int
+
+
+@dataclass(slots=True)
+class CalendarDay:
+    date: dt.date
+    label_short: str
+    label_full: str
+    is_today: bool
+    occurrence_blocks: list[CalendarOccurrenceBlock]
+
+
+@dataclass(slots=True)
+class CalendarWeek:
+    week_start: dt.date
+    week_end: dt.date
+    week_start_iso: str
+    week_end_iso: str
+    visible_start_time: dt.time
+    visible_end_time: dt.time
+    visible_start_label: str
+    visible_end_label: str
+    previous_week_start: dt.date
+    previous_week_start_iso: str
+    next_week_start: dt.date
+    next_week_start_iso: str
+    selected_occurrence_id: int | None
+    days: list[CalendarDay]
+    hour_markers: list[dict[str, float | str]]
+
+
+@dataclass(slots=True)
+class InlineSlotCard:
+    slot: SessionSlot
+    slot_id: int
+    time_label: str
+    coverage_status: str
+    coverage_label: str
+    coverage_class: str
+    current_responsable_name: str
+    my_assignment: ResponsibleAssignment | None
+    action_state: str
+    can_take: bool
+    can_release: bool
+
+
+@dataclass(slots=True)
+class InlineOccurrenceDetail:
+    occurrence: SessionOccurrence
+    occurrence_id: int
+    title: str
+    date_label: str
+    time_label: str
+    status_label: str
+    status_class: str
+    remaining_capacity_label: str
+    coverage_summary_label: str
+    notes: str
+    my_reservation: Reservation | None
+    slot_cards: list[InlineSlotCard]
+    can_reserve: bool
+    can_cancel: bool
+    week_start_iso: str
+
+
+@dataclass(slots=True)
+class CalendarPageState:
+    week: CalendarWeek
+    selected_detail: InlineOccurrenceDetail | None
+    empty_state_message: str
+    has_occurrences: bool
+
+
+def _time_to_minutes(value: dt.time) -> int:
+    return value.hour * 60 + value.minute
+
+
+def _week_start_for(value: dt.date) -> dt.date:
+    return value - dt.timedelta(days=value.weekday())
+
+
+def normalize_week_start(value, *, reference_date: dt.date | None = None) -> dt.date:
+    if reference_date is None:
+        reference_date = timezone.localdate()
+    if isinstance(value, dt.date):
+        return _week_start_for(value)
+    if value:
+        try:
+            return _week_start_for(dt.date.fromisoformat(str(value)))
+        except (TypeError, ValueError):
+            pass
+    return _week_start_for(reference_date)
+
+
+def normalize_selected_occurrence(value) -> int | None:
+    if value in (None, ""):
+        return None
+    try:
+        selected = int(value)
+    except (TypeError, ValueError):
+        return None
+    return selected if selected > 0 else None
+
+
+def get_occurrence_week_start(occurrence: SessionOccurrence) -> dt.date:
+    return _week_start_for(occurrence.session_date)
+
+
+def resolve_calendar_return_context(
+    *,
+    week_start_value=None,
+    selected_occurrence_value=None,
+    occurrence: SessionOccurrence | None = None,
+) -> dict[str, dt.date | int | str | None]:
+    reference_date = occurrence.session_date if occurrence is not None else timezone.localdate()
+    week_start = normalize_week_start(week_start_value, reference_date=reference_date)
+    selected_occurrence = normalize_selected_occurrence(selected_occurrence_value)
+    if selected_occurrence is None and occurrence is not None:
+        selected_occurrence = occurrence.pk
+    return {
+        "week_start": week_start,
+        "week_start_iso": week_start.isoformat(),
+        "selected_occurrence": selected_occurrence,
+    }
+
+
+def build_member_calendar_url(
+    *,
+    week_start: dt.date | None = None,
+    selected_occurrence: int | None = None,
+    occurrence: SessionOccurrence | None = None,
+    anchor: str | None = None,
+) -> str:
+    if week_start is None:
+        if occurrence is not None:
+            week_start = get_occurrence_week_start(occurrence)
+        else:
+            week_start = normalize_week_start(None)
+    params: dict[str, str | int] = {"week_start": week_start.isoformat()}
+    if selected_occurrence is None and occurrence is not None:
+        selected_occurrence = occurrence.pk
+    if selected_occurrence is not None:
+        params["selected_occurrence"] = selected_occurrence
+    url = f"{reverse('sessions:session-list')}?{urlencode(params)}"
+    if anchor:
+        return f"{url}#{anchor}"
+    return url
+
+
+def _member_calendar_statuses() -> tuple[str, ...]:
+    return (
+        SessionOccurrence.Status.OPEN,
+        SessionOccurrence.Status.CLOSED,
+        SessionOccurrence.Status.CANCELLED,
+    )
+
+
+def _member_occurrence_queryset(*, start_date=None, end_date=None, today=None, current_time=None):
+    if today is None:
+        today = timezone.localdate()
+    if current_time is None:
+        current_time = timezone.localtime().time()
+    active_reservations = Reservation.objects.active().select_related("user")
+    active_assignments = ResponsibleAssignment.objects.filter(
+        status=ResponsibleAssignment.Status.ACTIVE
+    ).select_related("user")
+    queryset = (
+        SessionOccurrence.objects.prefetch_related(
+            Prefetch("reservations", queryset=active_reservations),
+            Prefetch("slots__reservations", queryset=active_reservations),
+            Prefetch("slots__responsable_assignments", queryset=active_assignments),
+        )
+        .filter(status__in=_member_calendar_statuses())
+        .filter(_future_occurrence_filter(today=today, current_time=current_time))
+        .order_by("session_date", "start_time", "id")
+    )
+    if start_date is not None:
+        queryset = queryset.filter(session_date__gte=start_date)
+    if end_date is not None:
+        queryset = queryset.filter(session_date__lte=end_date)
+    return queryset
+
+
+def _occurrence_active_reservations(occurrence: SessionOccurrence) -> list[Reservation]:
+    return list(occurrence.reservations.all())
+
+
+def _occurrence_remaining_capacity(occurrence: SessionOccurrence) -> int:
+    return max(0, occurrence.capacity - len(_occurrence_active_reservations(occurrence)))
+
+
+def _occurrence_is_bookable(occurrence: SessionOccurrence) -> bool:
+    return (
+        occurrence.status == SessionOccurrence.Status.OPEN
+        and occurrence.starts_at > timezone.now()
+        and _occurrence_remaining_capacity(occurrence) > 0
+    )
+
+
+def _active_slot_assignment(slot: SessionSlot) -> ResponsibleAssignment | None:
+    for assignment in slot.responsable_assignments.all():
+        if assignment.status == ResponsibleAssignment.Status.ACTIVE:
+            return assignment
+    return None
+
+
+def _slot_coverage_status(slot: SessionSlot) -> str:
+    if slot.status == SessionSlot.Status.CANCELLED:
+        return SessionSlot.CoverageStatus.CANCELLED
+    if _active_slot_assignment(slot) is not None:
+        return SessionSlot.CoverageStatus.COVERED
+    return SessionSlot.CoverageStatus.UNCOVERED
+
+
+def _coverage_summary(occurrence: SessionOccurrence) -> dict[str, int]:
+    covered = 0
+    uncovered = 0
+    cancelled = 0
+    for slot in occurrence.slots.all():
+        coverage_status = _slot_coverage_status(slot)
+        if coverage_status == SessionSlot.CoverageStatus.CANCELLED:
+            cancelled += 1
+        elif coverage_status == SessionSlot.CoverageStatus.COVERED:
+            covered += 1
+        else:
+            uncovered += 1
+    return {
+        "covered": covered,
+        "uncovered": uncovered,
+        "cancelled": cancelled,
+        "total": covered + uncovered + cancelled,
+    }
+
+
+def _occurrence_status_summary(occurrence: SessionOccurrence) -> tuple[str, str]:
+    remaining_capacity = _occurrence_remaining_capacity(occurrence)
+    if occurrence.status == SessionOccurrence.Status.CANCELLED:
+        return ("Annulee", "status-danger")
+    if occurrence.status == SessionOccurrence.Status.CLOSED:
+        return ("Fermee", "status-warning")
+    if remaining_capacity == 0:
+        return ("Complet", "status-danger")
+    return ("", "status-open")
+
+
+def _shorten_occurrence_label(label: str) -> str:
+    shortened = " ".join(label.split())
+    for prefix in ("Pratique libre", "pratique libre", "Seance", "seance", "Session", "session"):
+        if shortened.startswith(prefix):
+            shortened = shortened[len(prefix) :].strip(" :-")
+    if not shortened:
+        shortened = "Seance"
+    if len(shortened) > 22:
+        return f"{shortened[:19].rstrip()}..."
+    return shortened
+
+
+def _build_day_blocks(day_occurrences: list[SessionOccurrence], *, selected_occurrence_id: int | None) -> list[CalendarOccurrenceBlock]:
+    blocks: list[CalendarOccurrenceBlock] = []
+    for occurrence in sorted(day_occurrences, key=lambda item: (item.start_time, item.end_time, item.id)):
+        status_label, status_class = _occurrence_status_summary(occurrence)
+        coverage_summary = _coverage_summary(occurrence)
+        remaining_capacity = _occurrence_remaining_capacity(occurrence)
+        blocks.append(
+            CalendarOccurrenceBlock(
+                occurrence=occurrence,
+                occurrence_id=occurrence.id,
+                display_label_short=_shorten_occurrence_label(occurrence.label),
+                status_label=status_label,
+                status_class=status_class,
+                start_time=occurrence.start_time,
+                end_time=occurrence.end_time,
+                time_label=f"{occurrence.start_time:%H:%M} - {occurrence.end_time:%H:%M}",
+                starts_before_visible_range=occurrence.start_time < VISIBLE_DAY_START,
+                ends_after_visible_range=occurrence.end_time > VISIBLE_DAY_END,
+                is_selected=occurrence.id == selected_occurrence_id,
+                is_bookable=_occurrence_is_bookable(occurrence),
+                remaining_capacity=remaining_capacity,
+                covered_slots=coverage_summary["covered"],
+                total_slots=coverage_summary["total"],
+            )
+        )
+    return blocks
+
+
+def _build_inline_detail(*, occurrence: SessionOccurrence, user, week_start: dt.date) -> InlineOccurrenceDetail:
+    my_reservation = next(
+        (reservation for reservation in occurrence.reservations.all() if reservation.user_id == user.id),
+        None,
+    )
+    slot_cards: list[InlineSlotCard] = []
+    for slot in occurrence.slots.all():
+        active_assignment = _active_slot_assignment(slot)
+        my_assignment = active_assignment if active_assignment and active_assignment.user_id == user.id else None
+        coverage_status = _slot_coverage_status(slot)
+        if coverage_status == SessionSlot.CoverageStatus.CANCELLED:
+            coverage_label = "Creneau annule"
+            coverage_class = "status-neutral"
+        elif my_assignment is not None:
+            coverage_label = "Vous couvrez ce creneau"
+            coverage_class = "status-warning"
+        elif active_assignment is not None:
+            coverage_label = "Responsable confirme"
+            coverage_class = "status-success"
+        else:
+            coverage_label = "Responsable manque"
+            coverage_class = "status-danger"
+
+        can_take = (
+            user.can_cover_slots
+            and coverage_status == SessionSlot.CoverageStatus.UNCOVERED
+            and slot.starts_at > timezone.now()
+        )
+        can_release = my_assignment is not None and slot.starts_at > timezone.now()
+        action_state = "release" if can_release else "take" if can_take else "none"
+        slot_cards.append(
+            InlineSlotCard(
+                slot=slot,
+                slot_id=slot.id,
+                time_label=f"{slot.start_time:%H:%M} - {slot.end_time:%H:%M}",
+                coverage_status=coverage_status,
+                coverage_label=coverage_label,
+                coverage_class=coverage_class,
+                current_responsable_name=active_assignment.user.full_name if active_assignment else "",
+                my_assignment=my_assignment,
+                action_state=action_state,
+                can_take=can_take,
+                can_release=can_release,
+            )
+        )
+
+    status_label, status_class = _occurrence_status_summary(occurrence)
+    coverage_summary = _coverage_summary(occurrence)
+    remaining_capacity = _occurrence_remaining_capacity(occurrence)
+    return InlineOccurrenceDetail(
+        occurrence=occurrence,
+        occurrence_id=occurrence.id,
+        title=occurrence.label,
+        date_label=formats.date_format(occurrence.session_date, "l j F"),
+        time_label=f"{occurrence.start_time:%H:%M} - {occurrence.end_time:%H:%M}",
+        status_label=status_label,
+        status_class=status_class,
+        remaining_capacity_label=f"{remaining_capacity} place(s) restante(s)",
+        coverage_summary_label=(
+            f"{coverage_summary['covered']}/{coverage_summary['total']} creneau(x) avec responsable"
+        ),
+        notes=occurrence.notes.strip(),
+        my_reservation=my_reservation,
+        slot_cards=slot_cards,
+        can_reserve=my_reservation is None and _occurrence_is_bookable(occurrence),
+        can_cancel=my_reservation is not None,
+        week_start_iso=week_start.isoformat(),
+    )
+
+
+def build_member_calendar_page(*, user, week_start_value=None, selected_occurrence_value=None) -> CalendarPageState:
+    week_start = normalize_week_start(week_start_value)
+    week_end = week_start + dt.timedelta(days=6)
+    occurrences = list(_member_occurrence_queryset(start_date=week_start, end_date=week_end))
+    requested_occurrence_id = normalize_selected_occurrence(selected_occurrence_value)
+
+    selected_occurrence = next(
+        (occurrence for occurrence in occurrences if occurrence.id == requested_occurrence_id),
+        None,
+    )
+    if selected_occurrence is None and occurrences:
+        selected_occurrence = occurrences[0]
+    selected_occurrence_id = selected_occurrence.id if selected_occurrence is not None else None
+
+    days: list[CalendarDay] = []
+    today = timezone.localdate()
+    for offset in range(7):
+        current_date = week_start + dt.timedelta(days=offset)
+        day_occurrences = [occurrence for occurrence in occurrences if occurrence.session_date == current_date]
+        days.append(
+            CalendarDay(
+                date=current_date,
+                label_short=formats.date_format(current_date, "D j"),
+                label_full=formats.date_format(current_date, "l j F"),
+                is_today=current_date == today,
+                occurrence_blocks=_build_day_blocks(
+                    day_occurrences,
+                    selected_occurrence_id=selected_occurrence_id,
+                ),
+            )
+        )
+
+    week = CalendarWeek(
+        week_start=week_start,
+        week_end=week_end,
+        week_start_iso=week_start.isoformat(),
+        week_end_iso=week_end.isoformat(),
+        visible_start_time=VISIBLE_DAY_START,
+        visible_end_time=VISIBLE_DAY_END,
+        visible_start_label=f"{VISIBLE_DAY_START:%H:%M}",
+        visible_end_label=f"{VISIBLE_DAY_END:%H:%M}",
+        previous_week_start=week_start - dt.timedelta(days=7),
+        previous_week_start_iso=(week_start - dt.timedelta(days=7)).isoformat(),
+        next_week_start=week_start + dt.timedelta(days=7),
+        next_week_start_iso=(week_start + dt.timedelta(days=7)).isoformat(),
+        selected_occurrence_id=selected_occurrence_id,
+        days=days,
+        hour_markers=[],
+    )
+    selected_detail = (
+        _build_inline_detail(occurrence=selected_occurrence, user=user, week_start=week_start)
+        if selected_occurrence is not None
+        else None
+    )
+    return CalendarPageState(
+        week=week,
+        selected_detail=selected_detail,
+        empty_state_message="Aucune seance visible sur cette semaine.",
+        has_occurrences=bool(occurrences),
+    )
 
 
 def _future_occurrence_filter(*, today=None, current_time=None) -> Q:
