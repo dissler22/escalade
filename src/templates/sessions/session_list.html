@@ -1,16 +1,16 @@
 {% extends "base.html" %}
 
-{% block title %}Séances ouvertes{% endblock %}
+{% block title %}Calendrier mixte{% endblock %}
 
 {% block content %}
   <section class="stack-lg">
     <div class="card page-intro">
       <p class="page-kicker">Parcours adhérent</p>
-      <h1 class="page-title">Séances ouvertes</h1>
-      <p class="page-lead">Vue semaine, détail juste en dessous.</p>
+      <h1 class="page-title">Calendrier mixte</h1>
+      <p class="page-lead">Séances ouvertes, pratiques libres et cours sur une seule semaine, avec des actions adaptées au type de séance.</p>
       <div class="meta-list">
         <span class="meta-pill">{{ week.week_start|date:"j M" }} - {{ week.week_end|date:"j M" }}</span>
-        <span class="meta-pill">Une semaine, plusieurs séances par jour</span>
+        <span class="meta-pill">Plusieurs séances possibles au même moment</span>
       </div>
     </div>
 

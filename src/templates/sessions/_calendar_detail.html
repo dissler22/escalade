@@ -10,12 +10,18 @@
   </div>
 
   <div class="session-meta">
+    <span class="badge {% if selected_detail.session_type == 'course' %}status-info{% else %}status-success{% endif %}">
+      {{ selected_detail.session_type_label }}
+    </span>
     {% if selected_detail.status_label %}
       <span class="badge {{ selected_detail.status_class }}">{{ selected_detail.status_label }}</span>
     {% endif %}
     <span class="badge status-open">{{ selected_detail.remaining_capacity_label }}</span>
-    {% if request.user.can_cover_slots %}
+    {% if selected_detail.show_responsibility_section and request.user.can_cover_slots %}
       <span class="badge status-neutral">{{ selected_detail.coverage_summary_label }}</span>
+    {% endif %}
+    {% if selected_detail.teacher_name %}
+      <span class="badge status-neutral">Prof: {{ selected_detail.teacher_name }}</span>
     {% endif %}
   </div>
 
@@ -53,59 +59,70 @@
         <button type="submit">S'inscrire</button>
       </form>
     {% else %}
-      <span class="helper-copy">Inscription indisponible depuis cette séance.</span>
+      <span class="helper-copy">{{ selected_detail.reserve_denial_reason|default:"Inscription indisponible depuis cette séance." }}</span>
+    {% endif %}
+    {% if selected_detail.can_edit_as_teacher %}
+      <a class="button ghost" href="{{ selected_detail.teacher_edit_url }}">Modifier comme prof</a>
     {% endif %}
   </div>
 
-  <section class="stack">
-    <div class="section-heading">
-      <div>
-        <p class="section-kicker">Responsable</p>
-        <h3>Créneaux</h3>
-      </div>
-      <p class="section-note">Un seul détail ouvert.</p>
-    </div>
-    <div class="responsable-slot-grid">
-      {% for item in selected_detail.slot_cards %}
-        <div class="responsable-slot">
-          {% if item.coverage_status == 'cancelled' %}
-            <span class="responsable-pill is-cancelled">
-              <strong>{{ item.time_label }}</strong>
-              <small>{{ item.coverage_label }}</small>
-            </span>
-          {% elif item.can_release %}
-            <form method="post" action="{% url 'sessions:release-responsibility' slot_id=item.slot_id %}">
-              {% csrf_token %}
-              <input type="hidden" name="week_start" value="{{ selected_detail.week_start_iso }}" />
-              <input type="hidden" name="selected_occurrence" value="{{ selected_detail.occurrence_id }}" />
-              <button type="submit" class="responsable-pill is-mine">
-                <strong>{{ item.time_label }}</strong>
-                <small>{{ item.coverage_label }}</small>
-              </button>
-            </form>
-          {% elif item.can_take %}
-            <form method="post" action="{% url 'sessions:take-responsibility' slot_id=item.slot_id %}">
-              {% csrf_token %}
-              <input type="hidden" name="week_start" value="{{ selected_detail.week_start_iso }}" />
-              <input type="hidden" name="selected_occurrence" value="{{ selected_detail.occurrence_id }}" />
-              <button type="submit" class="responsable-pill is-open">
-                <strong>{{ item.time_label }}</strong>
-                <small>{{ item.coverage_label }}</small>
-              </button>
-            </form>
-          {% elif item.current_responsable_name %}
-            <span class="responsable-pill is-taken">
-              <strong>{{ item.time_label }}</strong>
-              <small>{{ item.current_responsable_name }}</small>
-            </span>
-          {% else %}
-            <span class="responsable-pill is-open">
-              <strong>{{ item.time_label }}</strong>
-              <small>{{ item.coverage_label }}</small>
-            </span>
-          {% endif %}
+  {% if selected_detail.show_responsibility_section %}
+    <section class="stack">
+      <div class="section-heading">
+        <div>
+          <p class="section-kicker">Responsable</p>
+          <h3>Créneaux</h3>
         </div>
-      {% endfor %}
-    </div>
-  </section>
+        <p class="section-note">Un seul détail ouvert.</p>
+      </div>
+      <div class="responsable-slot-grid">
+        {% for item in selected_detail.slot_cards %}
+          <div class="responsable-slot">
+            {% if item.coverage_status == 'cancelled' %}
+              <span class="responsable-pill is-cancelled">
+                <strong>{{ item.time_label }}</strong>
+                <small>{{ item.coverage_label }}</small>
+              </span>
+            {% elif item.can_release %}
+              <form method="post" action="{% url 'sessions:release-responsibility' slot_id=item.slot_id %}">
+                {% csrf_token %}
+                <input type="hidden" name="week_start" value="{{ selected_detail.week_start_iso }}" />
+                <input type="hidden" name="selected_occurrence" value="{{ selected_detail.occurrence_id }}" />
+                <button type="submit" class="responsable-pill is-mine">
+                  <strong>{{ item.time_label }}</strong>
+                  <small>{{ item.coverage_label }}</small>
+                </button>
+              </form>
+            {% elif item.can_take %}
+              <form method="post" action="{% url 'sessions:take-responsibility' slot_id=item.slot_id %}">
+                {% csrf_token %}
+                <input type="hidden" name="week_start" value="{{ selected_detail.week_start_iso }}" />
+                <input type="hidden" name="selected_occurrence" value="{{ selected_detail.occurrence_id }}" />
+                <button type="submit" class="responsable-pill is-open">
+                  <strong>{{ item.time_label }}</strong>
+                  <small>{{ item.coverage_label }}</small>
+                </button>
+              </form>
+            {% elif item.current_responsable_name %}
+              <span class="responsable-pill is-taken">
+                <strong>{{ item.time_label }}</strong>
+                <small>{{ item.current_responsable_name }}</small>
+              </span>
+            {% else %}
+              <span class="responsable-pill is-open">
+                <strong>{{ item.time_label }}</strong>
+                <small>{{ item.coverage_label }}</small>
+              </span>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    </section>
+  {% else %}
+    <section class="card empty-state">
+      <p class="section-kicker">Cours</p>
+      <h3>Pas de logique référent</h3>
+      <p>Les cours affichent le prof et une inscription manuelle, sans logique référent.</p>
+    </section>
+  {% endif %}
 </section>

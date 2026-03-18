@@ -17,7 +17,7 @@ def test_member_can_book_and_cancel_flow(client, member_user, open_occurrence):
     assert session_list.status_code == 200
     session_list_html = session_list.content.decode()
     assert "USM Viroflay Escalade" in session_list_html
-    assert "Repère adhérent" in session_list_html
+    assert "Parcours adhérent" in session_list_html
     assert "Planning hebdomadaire" in session_list_html
     assert "Semaine suivante" in session_list_html
 

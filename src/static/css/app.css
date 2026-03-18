@@ -589,6 +589,12 @@ textarea {
   color: var(--ink);
 }
 
+input[type="checkbox"] {
+  width: auto;
+  min-height: auto;
+  padding: 0;
+}
+
 input:focus,
 select:focus,
 textarea:focus,
@@ -1115,4 +1121,60 @@ ul.errorlist {
   .inline-form > * {
     flex: 1 1 100%;
   }
+}
+
+.status-info {
+  background: var(--brand-blue-soft);
+  color: var(--brand-navy);
+  border-color: rgba(31, 120, 200, 0.22);
+}
+
+.badge-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.account-create-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.account-access-form {
+  gap: 0.75rem;
+}
+
+.stack-sm {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.course-choice-grid {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.course-choice {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: rgba(246, 251, 255, 0.88);
+  font-weight: 600;
+}
+
+.course-choice input[type="checkbox"] {
+  margin: 0;
+}
+
+.session-type-course {
+  border-color: rgba(31, 120, 200, 0.24);
+  background: linear-gradient(180deg, rgba(215, 235, 255, 0.96), rgba(255, 255, 255, 0.98));
+}
+
+.session-type-free_practice {
+  border-color: rgba(30, 109, 70, 0.18);
 }

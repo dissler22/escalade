@@ -57,6 +57,7 @@
           <nav class="nav" aria-label="Navigation principale">
             <a class="nav-link{% if request.resolver_match.namespace == 'sessions' %} is-current{% endif %}" href="{% url 'sessions:session-list' %}">Séances</a>
             <a class="nav-link{% if request.resolver_match.namespace == 'bookings' %} is-current{% endif %}" href="{% url 'bookings:my-reservations' %}">Mes réservations</a>
+            <a class="nav-link{% if request.resolver_match.namespace == 'accounts' and request.resolver_match.url_name == 'password-change' %} is-current{% endif %}" href="{% url 'accounts:password-change' %}">Mon code</a>
             {% if request.user.role == "admin" %}
               <a class="nav-link{% if request.resolver_match.namespace == 'sessions_admin' or request.resolver_match.namespace == 'bookings_admin' or request.resolver_match.namespace == 'audit' %} is-current{% endif %}" href="{% url 'sessions_admin:series-list' %}">Administration</a>
               <a class="nav-link{% if request.resolver_match.namespace == 'accounts_admin' and request.resolver_match.url_name == 'account-list' %} is-current{% endif %}" href="{% url 'accounts_admin:account-list' %}">Comptes</a>

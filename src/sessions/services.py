@@ -14,6 +14,7 @@ from audit.services import record_event
 from bookings.models import Reservation
 
 from .models import (
+    CourseEnrollment,
     MAX_SLOT_DURATION,
     EmailAutomationSettings,
     ResponsibleAssignment,
@@ -37,6 +38,10 @@ class CalendarOccurrenceBlock:
     occurrence: SessionOccurrence
     occurrence_id: int
     display_label_short: str
+    session_type: str
+    session_type_label: str
+    session_type_class: str
+    teacher_name: str
     status_label: str
     status_class: str
     start_time: dt.time
@@ -49,6 +54,7 @@ class CalendarOccurrenceBlock:
     remaining_capacity: int
     covered_slots: int
     total_slots: int
+    overlapping_count: int
 
 
 @dataclass(slots=True)
@@ -98,6 +104,8 @@ class InlineSlotCard:
 class InlineOccurrenceDetail:
     occurrence: SessionOccurrence
     occurrence_id: int
+    session_type: str
+    session_type_label: str
     title: str
     date_label: str
     time_label: str
@@ -106,11 +114,28 @@ class InlineOccurrenceDetail:
     remaining_capacity_label: str
     coverage_summary_label: str
     notes: str
+    teacher_name: str
     my_reservation: Reservation | None
     slot_cards: list[InlineSlotCard]
     can_reserve: bool
     can_cancel: bool
+    can_edit_as_teacher: bool
+    teacher_edit_url: str
+    reserve_denial_reason: str
+    show_responsibility_section: bool
     week_start_iso: str
+
+
+@dataclass(slots=True)
+class OccurrenceAccessPolicy:
+    occurrence: SessionOccurrence
+    session_type: str
+    can_reserve: bool
+    can_cancel: bool
+    can_take_responsibility: bool
+    can_release_responsibility: bool
+    can_edit_as_teacher: bool
+    reserve_denial_reason: str
 
 
 @dataclass(slots=True)
@@ -220,6 +245,7 @@ def _member_occurrence_queryset(*, start_date=None, end_date=None, today=None, c
             Prefetch("slots__reservations", queryset=active_reservations),
             Prefetch("slots__responsable_assignments", queryset=active_assignments),
         )
+        .select_related("series", "teacher", "series__default_teacher")
         .filter(status__in=_member_calendar_statuses())
         .filter(_future_occurrence_filter(today=today, current_time=current_time))
         .order_by("session_date", "start_time", "id")
@@ -244,6 +270,83 @@ def _occurrence_is_bookable(occurrence: SessionOccurrence) -> bool:
         occurrence.status == SessionOccurrence.Status.OPEN
         and occurrence.starts_at > timezone.now()
         and _occurrence_remaining_capacity(occurrence) > 0
+    )
+
+
+def _session_type_label(session_type: str) -> str:
+    if session_type == SessionSeries.SessionType.COURSE:
+        return "Cours"
+    return "Pratique libre"
+
+
+def _session_type_class(session_type: str) -> str:
+    return "status-info" if session_type == SessionSeries.SessionType.COURSE else "status-success"
+
+
+def user_has_course_access(*, user, occurrence: SessionOccurrence) -> bool:
+    if not user.is_active:
+        return False
+    if getattr(user, "is_admin_role", False):
+        return True
+    series_id = occurrence.series_id
+    if series_id is None:
+        return False
+    enrollments = getattr(user, "_prefetched_active_course_enrollments", None)
+    if enrollments is not None:
+        return any(enrollment.series_id == series_id for enrollment in enrollments)
+    return CourseEnrollment.objects.active().filter(user=user, series_id=series_id).exists()
+
+
+def can_edit_course_occurrence(*, user, occurrence: SessionOccurrence) -> bool:
+    if not user.is_active or occurrence.session_type != SessionSeries.SessionType.COURSE:
+        return False
+    if getattr(user, "is_admin_role", False):
+        return True
+    teacher = occurrence.display_teacher
+    return teacher is not None and teacher.pk == user.pk
+
+
+def get_occurrence_access_policy(*, user, occurrence: SessionOccurrence) -> OccurrenceAccessPolicy:
+    denial_reason = ""
+    can_reserve = False
+    if occurrence.is_bookable:
+        if occurrence.session_type == SessionSeries.SessionType.FREE_PRACTICE:
+            if user.can_book_free_practice:
+                can_reserve = True
+            else:
+                denial_reason = "Reserve aux adherents avec passport orange ou accreditation referent."
+        elif user_has_course_access(user=user, occurrence=occurrence):
+            can_reserve = True
+        else:
+            denial_reason = "Reserve aux adherents rattaches a ce cours."
+    else:
+        if occurrence.status == SessionOccurrence.Status.CANCELLED:
+            denial_reason = "Cette seance est annulee."
+        elif occurrence.status == SessionOccurrence.Status.COMPLETED:
+            denial_reason = "Cette seance est terminee."
+        elif occurrence.status != SessionOccurrence.Status.OPEN:
+            denial_reason = "Cette seance n est pas ouverte a l inscription."
+        elif occurrence.starts_at <= timezone.now():
+            denial_reason = "Cette seance a deja commence."
+        elif occurrence.remaining_capacity < 1:
+            denial_reason = "Cette seance est complete."
+    my_reservation = next(
+        (reservation for reservation in occurrence.reservations.all() if reservation.user_id == user.id),
+        None,
+    )
+    return OccurrenceAccessPolicy(
+        occurrence=occurrence,
+        session_type=occurrence.session_type,
+        can_reserve=can_reserve and my_reservation is None,
+        can_cancel=my_reservation is not None,
+        can_take_responsibility=(
+            occurrence.session_type == SessionSeries.SessionType.FREE_PRACTICE and user.can_cover_slots
+        ),
+        can_release_responsibility=(
+            occurrence.session_type == SessionSeries.SessionType.FREE_PRACTICE and user.can_cover_slots
+        ),
+        can_edit_as_teacher=can_edit_course_occurrence(user=user, occurrence=occurrence),
+        reserve_denial_reason=denial_reason,
     )
 
 
@@ -311,11 +414,22 @@ def _build_day_blocks(day_occurrences: list[SessionOccurrence], *, selected_occu
         status_label, status_class = _occurrence_status_summary(occurrence)
         coverage_summary = _coverage_summary(occurrence)
         remaining_capacity = _occurrence_remaining_capacity(occurrence)
+        overlapping_count = sum(
+            1
+            for other in day_occurrences
+            if other.id != occurrence.id
+            and other.start_time < occurrence.end_time
+            and other.end_time > occurrence.start_time
+        )
         blocks.append(
             CalendarOccurrenceBlock(
                 occurrence=occurrence,
                 occurrence_id=occurrence.id,
                 display_label_short=_shorten_occurrence_label(occurrence.label),
+                session_type=occurrence.session_type,
+                session_type_label=_session_type_label(occurrence.session_type),
+                session_type_class=_session_type_class(occurrence.session_type),
+                teacher_name=occurrence.display_teacher.full_name if occurrence.display_teacher else "",
                 status_label=status_label,
                 status_class=status_class,
                 start_time=occurrence.start_time,
@@ -326,20 +440,19 @@ def _build_day_blocks(day_occurrences: list[SessionOccurrence], *, selected_occu
                 is_selected=occurrence.id == selected_occurrence_id,
                 is_bookable=_occurrence_is_bookable(occurrence),
                 remaining_capacity=remaining_capacity,
-                covered_slots=coverage_summary["covered"],
-                total_slots=coverage_summary["total"],
+                covered_slots=coverage_summary["covered"] if occurrence.is_free_practice else 0,
+                total_slots=coverage_summary["total"] if occurrence.is_free_practice else 0,
+                overlapping_count=overlapping_count,
             )
         )
     return blocks
 
 
 def _build_inline_detail(*, occurrence: SessionOccurrence, user, week_start: dt.date) -> InlineOccurrenceDetail:
-    my_reservation = next(
-        (reservation for reservation in occurrence.reservations.all() if reservation.user_id == user.id),
-        None,
-    )
+    policy = get_occurrence_access_policy(user=user, occurrence=occurrence)
+    my_reservation = next((reservation for reservation in occurrence.reservations.all() if reservation.user_id == user.id), None)
     slot_cards: list[InlineSlotCard] = []
-    for slot in occurrence.slots.all():
+    for slot in occurrence.slots.all() if occurrence.is_free_practice else []:
         active_assignment = _active_slot_assignment(slot)
         my_assignment = active_assignment if active_assignment and active_assignment.user_id == user.id else None
         coverage_status = _slot_coverage_status(slot)
@@ -357,11 +470,11 @@ def _build_inline_detail(*, occurrence: SessionOccurrence, user, week_start: dt.
             coverage_class = "status-danger"
 
         can_take = (
-            user.can_cover_slots
+            policy.can_take_responsibility
             and coverage_status == SessionSlot.CoverageStatus.UNCOVERED
             and slot.starts_at > timezone.now()
         )
-        can_release = my_assignment is not None and slot.starts_at > timezone.now()
+        can_release = policy.can_release_responsibility and my_assignment is not None and slot.starts_at > timezone.now()
         action_state = "release" if can_release else "take" if can_take else "none"
         slot_cards.append(
             InlineSlotCard(
@@ -385,6 +498,8 @@ def _build_inline_detail(*, occurrence: SessionOccurrence, user, week_start: dt.
     return InlineOccurrenceDetail(
         occurrence=occurrence,
         occurrence_id=occurrence.id,
+        session_type=occurrence.session_type,
+        session_type_label=_session_type_label(occurrence.session_type),
         title=occurrence.label,
         date_label=formats.date_format(occurrence.session_date, "l j F"),
         time_label=f"{occurrence.start_time:%H:%M} - {occurrence.end_time:%H:%M}",
@@ -395,10 +510,17 @@ def _build_inline_detail(*, occurrence: SessionOccurrence, user, week_start: dt.
             f"{coverage_summary['covered']}/{coverage_summary['total']} creneau(x) avec responsable"
         ),
         notes=occurrence.notes.strip(),
+        teacher_name=occurrence.display_teacher.full_name if occurrence.display_teacher else "",
         my_reservation=my_reservation,
         slot_cards=slot_cards,
-        can_reserve=my_reservation is None and _occurrence_is_bookable(occurrence),
+        can_reserve=policy.can_reserve,
         can_cancel=my_reservation is not None,
+        can_edit_as_teacher=policy.can_edit_as_teacher and not user.is_admin_role,
+        teacher_edit_url=reverse("sessions:teacher-occurrence-edit", args=[occurrence.pk])
+        if occurrence.is_course
+        else "",
+        reserve_denial_reason=policy.reserve_denial_reason,
+        show_responsibility_section=occurrence.is_free_practice,
         week_start_iso=week_start.isoformat(),
     )
 
@@ -406,6 +528,9 @@ def _build_inline_detail(*, occurrence: SessionOccurrence, user, week_start: dt.
 def build_member_calendar_page(*, user, week_start_value=None, selected_occurrence_value=None) -> CalendarPageState:
     week_start = normalize_week_start(week_start_value)
     week_end = week_start + dt.timedelta(days=6)
+    user._prefetched_active_course_enrollments = list(
+        CourseEnrollment.objects.active().filter(user=user).select_related("series")
+    )
     occurrences = list(_member_occurrence_queryset(start_date=week_start, end_date=week_end))
     requested_occurrence_id = normalize_selected_occurrence(selected_occurrence_value)
 
@@ -540,6 +665,7 @@ def list_member_open_occurrences():
             Prefetch("slots__reservations", queryset=active_reservations),
             Prefetch("slots__responsable_assignments", queryset=active_assignments),
         )
+        .select_related("series", "teacher", "series__default_teacher")
         .filter(status=SessionOccurrence.Status.OPEN)
         .filter(_future_occurrence_filter(today=today, current_time=current_time))
         .order_by("session_date", "start_time")
@@ -563,23 +689,51 @@ def create_series(*, actor, cleaned_data, weeks=8):
             action_type="session_series_created",
             target_type="session_series",
             target_id=series.pk,
-            metadata={"label": series.label, "default_capacity": series.default_capacity},
+            metadata={
+                "label": series.label,
+                "default_capacity": series.default_capacity,
+                "session_type": series.session_type,
+                "default_teacher_id": series.default_teacher_id,
+            },
         )
         return series
 
 
 def update_series(*, actor, series, cleaned_data):
+    previous_session_type = series.session_type
+    previous_default_teacher_id = series.default_teacher_id
     for field, value in cleaned_data.items():
         setattr(series, field, value)
     series.full_clean()
-    series.save()
-    record_event(
-        actor=actor,
-        action_type="session_series_updated",
-        target_type="session_series",
-        target_id=series.pk,
-        metadata={"label": series.label, "default_capacity": series.default_capacity},
-    )
+    with transaction.atomic():
+        series.save()
+        for occurrence in series.occurrences.all():
+            occurrence.label = series.label
+            occurrence.start_time = series.start_time
+            occurrence.end_time = series.end_time
+            occurrence.capacity = series.default_capacity
+            occurrence.session_type = series.session_type
+            if series.session_type == SessionSeries.SessionType.COURSE:
+                if occurrence.teacher_id in {None, previous_default_teacher_id}:
+                    occurrence.teacher = series.default_teacher
+            elif occurrence.teacher_id == previous_default_teacher_id:
+                occurrence.teacher = None
+            occurrence.full_clean()
+            occurrence.save()
+            sync_occurrence_slots(actor=actor, occurrence=occurrence)
+        record_event(
+            actor=actor,
+            action_type="session_series_updated",
+            target_type="session_series",
+            target_id=series.pk,
+            metadata={
+                "label": series.label,
+                "default_capacity": series.default_capacity,
+                "session_type": series.session_type,
+                "default_teacher_id": series.default_teacher_id,
+                "previous_session_type": previous_session_type,
+            },
+        )
     return series
 
 
@@ -597,6 +751,8 @@ def generate_future_occurrences(*, series, actor, weeks=8):
                 "start_time": series.start_time,
                 "end_time": series.end_time,
                 "capacity": series.default_capacity,
+                "session_type": series.session_type,
+                "teacher": series.default_teacher,
                 "status": SessionOccurrence.Status.OPEN,
                 "created_by": actor,
             },
@@ -608,6 +764,14 @@ def generate_future_occurrences(*, series, actor, weeks=8):
 
 
 def sync_occurrence_slots(*, actor, occurrence):
+    if occurrence.is_course:
+        if occurrence.slots.exists():
+            if any(_slot_has_commitments(slot) for slot in occurrence.slots.all()):
+                raise ValidationError(
+                    "Impossible de supprimer les creneaux responsables d une occurrence de cours ayant deja des engagements."
+                )
+            occurrence.slots.all().delete()
+        return []
     expected_segments = _get_slot_segments(
         session_date=occurrence.session_date,
         start_time=occurrence.start_time,
@@ -689,6 +853,12 @@ def sync_occurrence_slots(*, actor, occurrence):
 
 def create_occurrence(*, actor, cleaned_data):
     with transaction.atomic():
+        if cleaned_data.get("series") is not None:
+            cleaned_data["session_type"] = cleaned_data["series"].session_type
+            if cleaned_data["session_type"] == SessionSeries.SessionType.COURSE and cleaned_data.get("teacher") is None:
+                cleaned_data["teacher"] = cleaned_data["series"].default_teacher
+        if cleaned_data.get("session_type") == SessionSeries.SessionType.FREE_PRACTICE:
+            cleaned_data["teacher"] = None
         occurrence = SessionOccurrence.objects.create(created_by=actor, **cleaned_data)
         sync_occurrence_slots(actor=actor, occurrence=occurrence)
         record_event(
@@ -697,7 +867,13 @@ def create_occurrence(*, actor, cleaned_data):
             target_type="session_occurrence",
             target_id=occurrence.pk,
             occurrence=occurrence,
-            metadata={"label": occurrence.label, "capacity": occurrence.capacity, "status": occurrence.status},
+            metadata={
+                "label": occurrence.label,
+                "capacity": occurrence.capacity,
+                "status": occurrence.status,
+                "session_type": occurrence.session_type,
+                "teacher_id": occurrence.teacher_id,
+            },
         )
         return occurrence
 
@@ -711,6 +887,12 @@ def update_occurrence(*, actor, occurrence, cleaned_data, mark_override=False):
         raise ValidationError("La capacite ne peut pas etre inferieure aux reservations actives d un creneau.")
     for field, value in cleaned_data.items():
         setattr(occurrence, field, value)
+    if occurrence.series is not None:
+        occurrence.session_type = occurrence.series.session_type
+        if occurrence.is_course and occurrence.teacher_id is None:
+            occurrence.teacher = occurrence.series.default_teacher
+    if occurrence.is_free_practice:
+        occurrence.teacher = None
     if mark_override:
         occurrence.is_override = True
     occurrence.full_clean()
@@ -727,6 +909,38 @@ def update_occurrence(*, actor, occurrence, cleaned_data, mark_override=False):
                 "capacity": occurrence.capacity,
                 "status": occurrence.status,
                 "is_override": occurrence.is_override,
+                "session_type": occurrence.session_type,
+                "teacher_id": occurrence.teacher_id,
+            },
+        )
+    return occurrence
+
+
+def update_occurrence_as_teacher(*, actor, occurrence, cleaned_data):
+    if not can_edit_course_occurrence(user=actor, occurrence=occurrence):
+        raise ValidationError("Vous ne pouvez modifier que vos propres occurrences de cours.")
+    if occurrence.is_free_practice:
+        raise ValidationError("Cette occurrence n est pas un cours.")
+
+    for forbidden_field in ("series", "session_type", "teacher"):
+        cleaned_data.pop(forbidden_field, None)
+    for field, value in cleaned_data.items():
+        setattr(occurrence, field, value)
+    occurrence.is_override = True
+    occurrence.full_clean()
+    with transaction.atomic():
+        occurrence.save()
+        record_event(
+            actor=actor,
+            action_type="course_occurrence_updated_by_teacher",
+            target_type="session_occurrence",
+            target_id=occurrence.pk,
+            occurrence=occurrence,
+            metadata={
+                "capacity": occurrence.capacity,
+                "status": occurrence.status,
+                "teacher_id": occurrence.teacher_id,
+                "series_id": occurrence.series_id,
             },
         )
     return occurrence
@@ -739,6 +953,8 @@ def change_occurrence_status(*, actor, occurrence, status, reason=""):
         occurrence.status = status
         occurrence.save(update_fields=["status", "updated_at"])
         for slot in occurrence.slots.exclude(status=SessionSlot.Status.COMPLETED):
+            if occurrence.is_course:
+                break
             if slot.status == SessionSlot.Status.CANCELLED and status != SessionOccurrence.Status.CANCELLED:
                 continue
             slot.status = status
@@ -768,6 +984,8 @@ def change_occurrence_status(*, actor, occurrence, status, reason=""):
 
 
 def update_slot(*, actor, slot, cleaned_data):
+    if slot.occurrence.is_course:
+        raise ValidationError("Les cours n utilisent pas de creneaux responsables.")
     active_count = slot.reservations.active().count()
     new_capacity = cleaned_data.get("capacity", slot.capacity)
     if new_capacity < active_count:
@@ -802,6 +1020,8 @@ def update_slot(*, actor, slot, cleaned_data):
 
 
 def change_slot_status(*, actor, slot, status, reason="", automatic=False):
+    if slot.occurrence.is_course:
+        raise ValidationError("Les cours n utilisent pas de creneaux responsables.")
     if status not in SessionSlot.Status.values:
         raise ValidationError("Statut invalide.")
     slot.status = status
@@ -825,6 +1045,8 @@ def change_slot_status(*, actor, slot, status, reason="", automatic=False):
 
 
 def _validate_responsable_assignment(*, user, slot):
+    if slot.occurrence.is_course:
+        raise ValidationError("La couverture responsable est reservee aux pratiques libres.")
     if slot.status == SessionSlot.Status.CANCELLED:
         raise ValidationError("Le creneau est annule.")
     if slot.status == SessionSlot.Status.COMPLETED:
@@ -896,6 +1118,8 @@ def release_slot_responsibility(*, actor, slot, user=None, reason="responsable_r
 
 
 def assign_slot_responsibility(*, actor, slot, user):
+    if slot.occurrence.is_course:
+        raise ValidationError("La couverture responsable est reservee aux pratiques libres.")
     if not user.can_cover_slots:
         raise ValidationError("Le compte choisi ne peut pas devenir responsable.")
     with transaction.atomic():
@@ -977,6 +1201,9 @@ def _render_email_template(template, *, slot):
 
 def _send_reminder_for_slot(slot):
     from accounts.models import User
+
+    if slot.occurrence.is_course:
+        return 0
     automation_settings = get_email_automation_settings()
 
     recipients = list(
@@ -1011,6 +1238,8 @@ def _send_reminder_for_slot(slot):
 
 
 def _send_cancellation_notice_for_slot(slot):
+    if slot.occurrence.is_course:
+        return 0
     automation_settings = get_email_automation_settings()
     reservations = list(
         slot.occurrence.reservations.active().select_related("user", "occurrence")
@@ -1056,6 +1285,7 @@ def process_slot_coverage_deadlines(*, today=None):
             ),
         )
         .exclude(status__in=[SessionSlot.Status.CANCELLED, SessionSlot.Status.COMPLETED])
+        .filter(occurrence__session_type=SessionSeries.SessionType.FREE_PRACTICE)
         .order_by("occurrence__session_date", "start_time")
     )
     reminders_sent = 0

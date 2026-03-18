@@ -16,10 +16,11 @@
           <div class="calendar-day__list">
             {% for block in day.occurrence_blocks %}
               <a
-                class="calendar-block {{ block.status_class }}{% if block.is_selected %} is-selected{% endif %}"
+                class="calendar-block {{ block.status_class }} session-type-{{ block.session_type }}{% if block.is_selected %} is-selected{% endif %}"
                 href="{% url 'sessions:session-list' %}?week_start={{ week.week_start_iso }}&selected_occurrence={{ block.occurrence_id }}#session-detail"
               >
                 <div class="calendar-block__topline">
+                  <span class="badge {{ block.session_type_class }}">{{ block.session_type_label }}</span>
                   <span class="calendar-block__time">
                     {% if block.starts_before_visible_range %}<span aria-hidden="true">‹</span>{% endif %}
                     {{ block.start_time|time:"H:i" }} - {{ block.end_time|time:"H:i" }}
@@ -32,8 +33,14 @@
                 <strong class="calendar-block__title">{{ block.display_label_short }}</strong>
                 <div class="calendar-block__bottomline">
                   <span class="calendar-block__meta">{{ block.remaining_capacity }} place(s)</span>
+                  {% if block.teacher_name %}
+                    <span class="calendar-block__meta">Prof: {{ block.teacher_name }}</span>
+                  {% endif %}
                   {% if request.user.can_cover_slots and block.total_slots %}
                     <span class="calendar-block__meta">{{ block.covered_slots }}/{{ block.total_slots }} resp.</span>
+                  {% endif %}
+                  {% if block.overlapping_count %}
+                    <span class="calendar-block__meta">{{ block.overlapping_count|add:"1" }} en parallèle</span>
                   {% endif %}
                 </div>
               </a>

@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}Edition prof{% endblock %}
+
+{% block content %}
+  <section class="stack-lg">
+    <div class="card page-intro">
+      <p class="page-kicker">Parcours référent / prof</p>
+      <h1 class="page-title">Modifier une occurrence de cours</h1>
+      <p class="page-lead">
+        Vous modifiez uniquement cette occurrence. La série complète et l administration globale restent réservées à l admin.
+      </p>
+    </div>
+
+    <section class="card form-card">
+      <div class="section-heading">
+        <div>
+          <p class="section-kicker">Occurrence</p>
+          <h2>{{ occurrence.label }}</h2>
+        </div>
+        <div class="session-meta">
+          <span class="badge status-info">{{ occurrence.get_session_type_display }}</span>
+          <span class="badge status-neutral">Prof: {{ occurrence.display_teacher.full_name|default:"non assigné" }}</span>
+        </div>
+      </div>
+      <form method="post">
+        {% csrf_token %}
+        <div class="form-body">{{ form.as_p }}</div>
+        <div class="actions">
+          <button type="submit">Enregistrer</button>
+          <a class="button secondary" href="{% url 'sessions:session-list' %}?selected_occurrence={{ occurrence.id }}#session-detail">Retour au calendrier</a>
+        </div>
+      </form>
+    </section>
+  </section>
+{% endblock %}

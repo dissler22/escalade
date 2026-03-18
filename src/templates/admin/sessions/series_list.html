@@ -8,7 +8,7 @@
       <p class="page-kicker">Administration</p>
       <h1 class="page-title">Pilotage des séances</h1>
       <p class="page-lead">
-        Gère les séries hebdomadaires, les séances ponctuelles, le découpage en créneaux et la couverture responsable.
+        Gère les pratiques libres, les cours, les profs par défaut et la couverture référent des seules pratiques libres.
       </p>
       <div class="meta-list">
         <span class="meta-pill">Envoi automatique: {{ notification_sender.sender_email|default:"non configuré" }}</span>
@@ -33,13 +33,15 @@
       <div class="table-wrap">
         <table class="table table-stack">
           <thead>
-            <tr><th>Label</th><th>Jour</th><th>Capacité</th><th>Actions</th></tr>
+            <tr><th>Label</th><th>Type</th><th>Jour</th><th>Prof par défaut</th><th>Capacité</th><th>Actions</th></tr>
           </thead>
           <tbody>
             {% for item in series_items %}
               <tr>
                 <td data-label="Label">{{ item.label }}</td>
+                <td data-label="Type"><span class="badge {% if item.session_type == 'course' %}status-info{% else %}status-success{% endif %}">{{ item.get_session_type_display }}</span></td>
                 <td data-label="Jour">{{ item.get_weekday_display }}</td>
+                <td data-label="Prof par défaut">{{ item.default_teacher.full_name|default:"-" }}</td>
                 <td data-label="Capacité">{{ item.default_capacity }} place(s)</td>
                 <td data-label="Actions">
                   <div class="table-actions">
@@ -52,7 +54,7 @@
                 </td>
               </tr>
             {% empty %}
-              <tr><td colspan="4">Aucune série.</td></tr>
+              <tr><td colspan="6">Aucune série.</td></tr>
             {% endfor %}
           </tbody>
         </table>
@@ -70,18 +72,23 @@
       <div class="table-wrap">
         <table class="table table-stack">
           <thead>
-            <tr><th>Date</th><th>Label</th><th>Créneaux</th><th>Couverture</th><th>Actions</th></tr>
+            <tr><th>Date</th><th>Label</th><th>Type</th><th>Prof</th><th>Couverture</th><th>Actions</th></tr>
           </thead>
           <tbody>
             {% for occurrence in occurrences %}
               <tr>
                 <td data-label="Date">{{ occurrence.session_date }}</td>
                 <td data-label="Label">{{ occurrence.label }}</td>
-                <td data-label="Créneaux">{{ occurrence.slots.count }} créneau(x) · {{ occurrence.capacity }} place(s)</td>
+                <td data-label="Type"><span class="badge {% if occurrence.session_type == 'course' %}status-info{% else %}status-success{% endif %}">{{ occurrence.get_session_type_display }}</span></td>
+                <td data-label="Prof">{{ occurrence.display_teacher.full_name|default:"-" }}</td>
                 <td data-label="Couverture">
-                  <span class="badge {% if occurrence.coverage_summary.uncovered %}status-danger{% else %}status-success{% endif %}">
-                    {{ occurrence.coverage_summary.covered }}/{{ occurrence.coverage_summary.total }} créneaux avec responsable
-                  </span>
+                  {% if occurrence.is_free_practice %}
+                    <span class="badge {% if occurrence.coverage_summary.uncovered %}status-danger{% else %}status-success{% endif %}">
+                      {{ occurrence.coverage_summary.covered }}/{{ occurrence.coverage_summary.total }} créneaux avec responsable
+                    </span>
+                  {% else %}
+                    <span class="badge status-neutral">sans logique référent</span>
+                  {% endif %}
                 </td>
                 <td data-label="Actions">
                   <div class="table-actions">
@@ -96,7 +103,7 @@
                 </td>
               </tr>
             {% empty %}
-              <tr><td colspan="5">Aucune occurrence.</td></tr>
+              <tr><td colspan="6">Aucune occurrence.</td></tr>
             {% endfor %}
           </tbody>
         </table>

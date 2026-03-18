@@ -6,12 +6,74 @@
       <p class="page-kicker">Administration des accès</p>
       <h1 class="page-title">Comptes</h1>
       <p class="page-lead">
-        Ajustez les rôles, l'activation et l'accréditation responsable sans quitter la liste.
+        Créez les comptes, distribuez un code temporaire, gérez les resets et ajustez les droits sans quitter la liste.
       </p>
       <div class="meta-list">
         <span class="meta-pill">Adresse d'envoi: {{ notification_sender.sender_email|default:"non configurée" }}</span>
       </div>
     </div>
+
+    <section class="card form-card">
+      <div class="section-heading">
+        <div>
+          <p class="section-kicker">Nouveau compte</p>
+          <h2>Créer un accès club</h2>
+        </div>
+        <p class="section-note">Le compte démarre avec un code temporaire, puis l adhérent le remplace à sa première connexion.</p>
+      </div>
+      <form method="post" action="{% url 'accounts_admin:account-create' %}">
+        {% csrf_token %}
+        <div class="account-create-grid">
+          <label>
+            <span>Nom complet</span>
+            {{ create_form.full_name }}
+            {{ create_form.full_name.errors }}
+          </label>
+          <label>
+            <span>Email</span>
+            {{ create_form.email }}
+            {{ create_form.email.errors }}
+          </label>
+          <label>
+            <span>Parcours</span>
+            {{ create_form.role }}
+            {{ create_form.role.errors }}
+          </label>
+          <label>
+            <span>Accréditation référent</span>
+            {{ create_form.is_responsable_accredited }}
+            {{ create_form.is_responsable_accredited.errors }}
+          </label>
+          <label>
+            <span>Passport orange</span>
+            {{ create_form.has_orange_passport }}
+            {{ create_form.has_orange_passport.errors }}
+          </label>
+          <label>
+            <span>Activation</span>
+            {{ create_form.is_active }}
+            {{ create_form.is_active.errors }}
+          </label>
+        </div>
+        <div class="stack-sm">
+          <span class="section-kicker">Cours rattachés</span>
+          <div class="course-choice-grid">
+            {% for checkbox in create_form.course_series_ids %}
+              <label class="course-choice">
+                {{ checkbox.tag }}
+                <span>{{ checkbox.choice_label }}</span>
+              </label>
+            {% empty %}
+              <span class="badge status-neutral">aucun cours configuré</span>
+            {% endfor %}
+          </div>
+          {{ create_form.course_series_ids.errors }}
+        </div>
+        <div class="actions">
+          <button type="submit">Créer le compte</button>
+        </div>
+      </form>
+    </section>
 
     <section class="card table-card">
       <div class="section-heading">
@@ -24,36 +86,72 @@
       <div class="table-wrap">
         <table class="table table-stack">
           <thead>
-            <tr><th>Nom</th><th>Email</th><th>Rôle</th><th>Responsable</th><th>Actif</th><th>Mise à jour</th></tr>
+            <tr><th>Nom</th><th>Email</th><th>Parcours</th><th>Code</th><th>Accès libre</th><th>Cours rattachés</th><th>Reprise</th><th>Mise à jour</th></tr>
           </thead>
           <tbody>
-            {% for user in users %}
+            {% for row in account_rows %}
+              {% with user=row.user %}
               <tr>
                 <td data-label="Nom">{{ user.full_name }}</td>
                 <td data-label="Email">{{ user.email }}</td>
-                <td data-label="Rôle">
+                <td data-label="Parcours">
                   <span class="badge {% if user.role == 'admin' %}status-warning{% else %}status-neutral{% endif %}">
                     {{ user.role }}
                   </span>
+                  {% if user.is_responsable_accredited %}
+                    <span class="badge status-success">référent</span>
+                  {% endif %}
+                  {% if row.is_teacher %}
+                    <span class="badge status-info">prof</span>
+                  {% endif %}
                 </td>
-                <td data-label="Responsable">
-                  <span class="badge {% if user.can_cover_slots %}status-success{% else %}status-neutral{% endif %}">
-                    {% if user.role == "admin" %}
-                      admin couvre aussi
-                    {% elif user.is_responsable_accredited %}
-                      accrédité
+                <td data-label="Code">
+                  <span class="badge {% if user.password_state == 'active' %}status-success{% elif user.password_state == 'reset_required' %}status-warning{% else %}status-info{% endif %}">
+                    {% if user.password_state == "active" %}
+                      code personnel
+                    {% elif user.password_state == "reset_required" %}
+                      reset requis
                     {% else %}
-                      non
+                      code temporaire
                     {% endif %}
                   </span>
                 </td>
-                <td data-label="Actif">
-                  <span class="badge {% if user.is_active %}status-success{% else %}status-danger{% endif %}">
-                    {{ user.is_active|yesno:"actif,inactif" }}
+                <td data-label="Accès libre">
+                  <span class="badge {% if user.can_book_free_practice %}status-success{% else %}status-neutral{% endif %}">
+                    {% if user.role == "admin" %}
+                      admin
+                    {% elif user.is_responsable_accredited %}
+                      référent autorisé
+                    {% elif user.has_orange_passport %}
+                      passport orange
+                    {% else %}
+                      non autorisé
+                    {% endif %}
                   </span>
                 </td>
+                <td data-label="Cours rattachés">
+                  <div class="badge-group">
+                    {% for series in course_series %}
+                      {% if series.id in row.course_ids %}
+                        <span class="badge status-info">{{ series.label }}</span>
+                      {% endif %}
+                    {% empty %}
+                      <span class="badge status-neutral">aucun cours</span>
+                    {% endfor %}
+                    {% if not row.course_ids %}
+                      <span class="badge status-neutral">aucun cours</span>
+                    {% endif %}
+                  </div>
+                </td>
+                <td data-label="Reprise">
+                  {% if row.recovery_count %}
+                    <span class="badge status-danger">{{ row.recovery_count }} inscription(s) à revoir</span>
+                  {% else %}
+                    <span class="badge status-success">aucune alerte</span>
+                  {% endif %}
+                </td>
                 <td data-label="Mise à jour">
-                  <form method="post" action="{% url 'accounts_admin:account-status' user_id=user.id %}" class="inline-form">
+                  <form method="post" action="{% url 'accounts_admin:account-status' user_id=user.id %}" class="account-access-form">
                     {% csrf_token %}
                     <select name="role" aria-label="Rôle du compte">
                       <option value="member" {% if user.role == "member" %}selected{% endif %}>member</option>
@@ -63,14 +161,38 @@
                       <option value="true" {% if user.is_responsable_accredited %}selected{% endif %}>responsable</option>
                       <option value="false" {% if not user.is_responsable_accredited %}selected{% endif %}>non</option>
                     </select>
+                    <select name="has_orange_passport" aria-label="Passport orange">
+                      <option value="true" {% if user.has_orange_passport %}selected{% endif %}>passport orange</option>
+                      <option value="false" {% if not user.has_orange_passport %}selected{% endif %}>sans passport</option>
+                    </select>
                     <select name="is_active" aria-label="Activation du compte">
                       <option value="true" {% if user.is_active %}selected{% endif %}>actif</option>
                       <option value="false" {% if not user.is_active %}selected{% endif %}>inactif</option>
                     </select>
-                    <button type="submit" class="secondary">Mettre à jour</button>
+                    <div class="stack-sm">
+                      <span class="section-kicker">Cours</span>
+                      <div class="course-choice-grid">
+                        {% for series in course_series %}
+                          <label class="course-choice">
+                            <input type="checkbox" name="course_series_ids" value="{{ series.id }}" {% if series.id in row.course_ids %}checked{% endif %} />
+                            <span>{{ series.label }}</span>
+                          </label>
+                        {% empty %}
+                          <span class="badge status-neutral">aucun cours configuré</span>
+                        {% endfor %}
+                      </div>
+                    </div>
+                    <div class="table-actions">
+                      <button type="submit" class="secondary">Mettre à jour</button>
+                    </div>
+                  </form>
+                  <form method="post" action="{% url 'accounts_admin:account-reset-password' user_id=user.id %}" class="inline-form">
+                    {% csrf_token %}
+                    <button type="submit" class="button ghost">Reset code</button>
                   </form>
                 </td>
               </tr>
+              {% endwith %}
             {% endfor %}
           </tbody>
         </table>

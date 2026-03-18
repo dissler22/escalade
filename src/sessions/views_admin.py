@@ -28,13 +28,13 @@ def admin_required(view_func):
 @admin_required
 def series_list(request: HttpRequest) -> HttpResponse:
     User = get_user_model()
-    series_items = SessionSeries.objects.order_by("label", "weekday")
+    series_items = SessionSeries.objects.select_related("default_teacher").order_by("label", "weekday")
     occurrences = (
         SessionOccurrence.objects.prefetch_related(
             "slots__reservations",
             "slots__responsable_assignments__user",
         )
-        .select_related("series")
+        .select_related("series", "teacher", "series__default_teacher")
         .order_by("session_date", "start_time")[:30]
     )
     responsable_candidates = User.objects.filter(is_active=True).exclude(email="").order_by("full_name")
@@ -104,7 +104,8 @@ def occurrence_create(request: HttpRequest) -> HttpResponse:
 @admin_required
 def occurrence_edit(request: HttpRequest, occurrence_id: int) -> HttpResponse:
     occurrence = get_object_or_404(
-        SessionOccurrence.objects.prefetch_related("slots__reservations", "slots__responsable_assignments__user"),
+        SessionOccurrence.objects.prefetch_related("slots__reservations", "slots__responsable_assignments__user")
+        .select_related("series", "teacher", "series__default_teacher"),
         pk=occurrence_id,
     )
     form = SessionOccurrenceForm(request.POST or None, instance=occurrence)
@@ -130,6 +131,7 @@ def occurrence_edit(request: HttpRequest, occurrence_id: int) -> HttpResponse:
             "form": form,
             "title": "Modifier la seance",
             "occurrence": occurrence,
+            "is_course": occurrence.is_course,
             "responsable_candidates": responsable_candidates,
         },
     )
@@ -179,6 +181,9 @@ def occurrence_delete(request: HttpRequest, occurrence_id: int) -> HttpResponse:
 @admin_required
 def slot_update_view(request: HttpRequest, slot_id: int) -> HttpResponse:
     slot = get_object_or_404(SessionSlot.objects.select_related("occurrence"), pk=slot_id)
+    if slot.occurrence.is_course:
+        messages.error(request, "Les cours n utilisent pas de creneaux responsables.")
+        return redirect("sessions_admin:occurrence-edit", occurrence_id=slot.occurrence_id)
     if request.method == "POST":
         try:
             update_slot(
@@ -201,6 +206,9 @@ def slot_update_view(request: HttpRequest, slot_id: int) -> HttpResponse:
 @admin_required
 def slot_status(request: HttpRequest, slot_id: int) -> HttpResponse:
     slot = get_object_or_404(SessionSlot.objects.select_related("occurrence"), pk=slot_id)
+    if slot.occurrence.is_course:
+        messages.error(request, "Les cours n utilisent pas de creneaux responsables.")
+        return redirect("sessions_admin:occurrence-edit", occurrence_id=slot.occurrence_id)
     if request.method == "POST":
         status = request.POST.get("status", "")
         reason = request.POST.get("reason", "")
@@ -216,6 +224,9 @@ def slot_status(request: HttpRequest, slot_id: int) -> HttpResponse:
 @admin_required
 def slot_assign_responsable(request: HttpRequest, slot_id: int) -> HttpResponse:
     slot = get_object_or_404(SessionSlot.objects.select_related("occurrence"), pk=slot_id)
+    if slot.occurrence.is_course:
+        messages.error(request, "La couverture referent est reservee aux pratiques libres.")
+        return redirect("sessions_admin:occurrence-edit", occurrence_id=slot.occurrence_id)
     if request.method == "POST":
         user = get_object_or_404(get_user_model(), pk=request.POST.get("user_id"))
         try:
@@ -230,6 +241,9 @@ def slot_assign_responsable(request: HttpRequest, slot_id: int) -> HttpResponse:
 @admin_required
 def slot_release_responsable(request: HttpRequest, slot_id: int) -> HttpResponse:
     slot = get_object_or_404(SessionSlot.objects.select_related("occurrence"), pk=slot_id)
+    if slot.occurrence.is_course:
+        messages.error(request, "La couverture referent est reservee aux pratiques libres.")
+        return redirect("sessions_admin:occurrence-edit", occurrence_id=slot.occurrence_id)
     if request.method == "POST":
         try:
             release_slot_responsibility(
