@@ -1,4 +1,5 @@
 import pytest
+from django.contrib.auth import get_user_model
 from django.urls import reverse
 from django.test import override_settings
 
@@ -57,3 +58,39 @@ def test_member_can_log_in_from_public_entry_and_reach_sessions(client, member_u
     assert "Repère adhérent" in html
     assert "Séances ouvertes" in html
     assert "Planning hebdomadaire" in html
+
+
+@pytest.mark.django_db
+def test_temporary_password_forces_password_change_flow(client):
+    user = get_user_model().objects.create_user(
+        email="temp-user@example.com",
+        password="tempcode123",
+        full_name="Temp User",
+        role="member",
+        password_state="temporary",
+    )
+
+    response = client.post(
+        reverse("accounts:login"),
+        {"email": user.email, "password": "tempcode123"},
+        follow=True,
+    )
+
+    assert response.status_code == 200
+    assert response.request["PATH_INFO"] == reverse("accounts:password-change")
+    assert "Code temporaire detecte" in response.content.decode()
+
+    response = client.post(
+        reverse("accounts:password-change"),
+        {
+            "old_password": "tempcode123",
+            "new_password1": "nouveau-code-456",
+            "new_password2": "nouveau-code-456",
+        },
+        follow=True,
+    )
+
+    assert response.status_code == 200
+    user.refresh_from_db()
+    assert user.password_state == user.PasswordState.ACTIVE
+    assert response.request["PATH_INFO"] == reverse("sessions:session-list")

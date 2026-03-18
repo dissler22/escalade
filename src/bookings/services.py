@@ -4,6 +4,7 @@ from django.utils import timezone
 
 from audit.services import record_event
 from sessions.models import SessionOccurrence
+from sessions.services import get_occurrence_access_policy
 
 from .models import Reservation
 
@@ -21,6 +22,10 @@ def _validate_member_booking(user, occurrence, *, allow_closed_admin=False):
         raise ValidationError("Vous etes deja inscrit a cette seance.")
     if occurrence.remaining_capacity < 1:
         raise ValidationError("La seance est complete.")
+    if not allow_closed_admin:
+        policy = get_occurrence_access_policy(user=user, occurrence=occurrence)
+        if not policy.can_reserve:
+            raise ValidationError(policy.reserve_denial_reason or "Vous n etes pas autorise a vous inscrire a cette seance.")
 
 
 def _create_booking(*, actor, user, occurrence, action_type, reason=""):

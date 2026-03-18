@@ -1,10 +1,10 @@
 from django.contrib import messages
-from django.contrib.auth import login, logout
+from django.contrib.auth import login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 
-from .forms import EmailAuthenticationForm
+from .forms import EmailAuthenticationForm, RequiredPasswordChangeForm
 
 
 def home(request: HttpRequest) -> HttpResponse:
@@ -15,11 +15,17 @@ def home(request: HttpRequest) -> HttpResponse:
 
 def login_view(request: HttpRequest) -> HttpResponse:
     if request.user.is_authenticated:
+        if request.user.password_state != request.user.PasswordState.ACTIVE:
+            return redirect("accounts:password-change")
         return redirect("sessions:session-list")
 
     form = EmailAuthenticationForm(request, data=request.POST or None)
     if request.method == "POST" and form.is_valid():
-        login(request, form.get_user())
+        user = form.get_user()
+        login(request, user)
+        if user.password_state != user.PasswordState.ACTIVE:
+            messages.warning(request, "Code temporaire detecte. Choisissez maintenant votre code personnel.")
+            return redirect("accounts:password-change")
         messages.success(request, "Connexion reussie.")
         return redirect("sessions:session-list")
     return render(request, "accounts/login.html", {"form": form})
@@ -30,3 +36,16 @@ def logout_view(request: HttpRequest) -> HttpResponse:
     logout(request)
     messages.success(request, "Deconnexion reussie.")
     return redirect("accounts:login")
+
+
+@login_required
+def password_change_view(request: HttpRequest) -> HttpResponse:
+    form = RequiredPasswordChangeForm(user=request.user, data=request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        user = form.save(commit=False)
+        user.mark_password_active()
+        user.save(update_fields=["password", "password_state", "updated_at"])
+        update_session_auth_hash(request, user)
+        messages.success(request, "Code personnel mis a jour.")
+        return redirect("sessions:session-list")
+    return render(request, "accounts/password_change.html", {"form": form})

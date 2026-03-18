@@ -9,6 +9,10 @@ MAX_SLOT_DURATION = dt.timedelta(minutes=90)
 
 
 class SessionSeries(models.Model):
+    class SessionType(models.TextChoices):
+        FREE_PRACTICE = "free_practice", "Pratique libre"
+        COURSE = "course", "Cours"
+
     class Weekday(models.IntegerChoices):
         MONDAY = 0, "Monday"
         TUESDAY = 1, "Tuesday"
@@ -23,6 +27,18 @@ class SessionSeries(models.Model):
     start_time = models.TimeField()
     end_time = models.TimeField()
     default_capacity = models.PositiveIntegerField()
+    session_type = models.CharField(
+        max_length=20,
+        choices=SessionType.choices,
+        default=SessionType.FREE_PRACTICE,
+    )
+    default_teacher = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="default_course_series",
+    )
     is_active = models.BooleanField(default=True)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -37,9 +53,75 @@ class SessionSeries(models.Model):
             raise ValidationError("Capacity must be positive.")
         if self.end_time <= self.start_time:
             raise ValidationError("End time must be after start time.")
+        if self.session_type == self.SessionType.FREE_PRACTICE and self.default_teacher_id is not None:
+            raise ValidationError("Free practice series cannot have a default teacher.")
+
+    @property
+    def is_course(self) -> bool:
+        return self.session_type == self.SessionType.COURSE
+
+    @property
+    def is_free_practice(self) -> bool:
+        return self.session_type == self.SessionType.FREE_PRACTICE
 
     def __str__(self) -> str:
         return self.label
+
+
+class CourseEnrollmentQuerySet(models.QuerySet):
+    def active(self):
+        return self.filter(status=CourseEnrollment.Status.ACTIVE)
+
+
+class CourseEnrollment(models.Model):
+    class Status(models.TextChoices):
+        ACTIVE = "active", "Active"
+        REMOVED = "removed", "Removed"
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="course_enrollments",
+    )
+    series = models.ForeignKey(
+        SessionSeries,
+        on_delete=models.CASCADE,
+        related_name="course_enrollments",
+    )
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.ACTIVE)
+    assigned_at = models.DateTimeField(auto_now_add=True)
+    assigned_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="assigned_course_enrollments",
+    )
+    removed_at = models.DateTimeField(null=True, blank=True)
+    removed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="removed_course_enrollments",
+    )
+
+    objects = CourseEnrollmentQuerySet.as_manager()
+
+    class Meta:
+        ordering = ["user__full_name", "series__label", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "series"],
+                condition=Q(status="active"),
+                name="unique_active_course_enrollment_per_user_series",
+            )
+        ]
+
+    def clean(self):
+        if self.series.session_type != SessionSeries.SessionType.COURSE:
+            raise ValidationError("Course enrollments can only target course series.")
+
+    def __str__(self) -> str:
+        return f"{self.user} / {self.series}"
 
 
 class SessionOccurrence(models.Model):
@@ -62,6 +144,18 @@ class SessionOccurrence(models.Model):
     start_time = models.TimeField()
     end_time = models.TimeField()
     capacity = models.PositiveIntegerField()
+    session_type = models.CharField(
+        max_length=20,
+        choices=SessionSeries.SessionType.choices,
+        default=SessionSeries.SessionType.FREE_PRACTICE,
+    )
+    teacher = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="teaching_occurrences",
+    )
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT)
     notes = models.TextField(blank=True)
     is_override = models.BooleanField(default=False)
@@ -82,6 +176,10 @@ class SessionOccurrence(models.Model):
             raise ValidationError("Capacity must be positive.")
         if self.end_time <= self.start_time:
             raise ValidationError("End time must be after start time.")
+        if self.series is not None and self.session_type != self.series.session_type:
+            raise ValidationError("Occurrence type must match its series type.")
+        if self.session_type == SessionSeries.SessionType.FREE_PRACTICE and self.teacher_id is not None:
+            raise ValidationError("Free practice occurrences cannot expose a teacher.")
 
     @property
     def starts_at(self):
@@ -117,6 +215,8 @@ class SessionOccurrence(models.Model):
 
     @property
     def coverage_summary(self) -> dict[str, int]:
+        if self.session_type == SessionSeries.SessionType.COURSE:
+            return {"covered": 0, "uncovered": 0, "cancelled": 0, "total": 0}
         covered = 0
         uncovered = 0
         cancelled = 0
@@ -136,6 +236,22 @@ class SessionOccurrence(models.Model):
 
     def __str__(self) -> str:
         return f"{self.label} - {self.session_date}"
+
+    @property
+    def is_course(self) -> bool:
+        return self.session_type == SessionSeries.SessionType.COURSE
+
+    @property
+    def is_free_practice(self) -> bool:
+        return self.session_type == SessionSeries.SessionType.FREE_PRACTICE
+
+    @property
+    def display_teacher(self):
+        if self.teacher is not None:
+            return self.teacher
+        if self.series is not None:
+            return self.series.default_teacher
+        return None
 
 
 class SessionSlot(models.Model):
@@ -181,6 +297,8 @@ class SessionSlot(models.Model):
             raise ValidationError("Capacity must be positive.")
         if self.end_time <= self.start_time:
             raise ValidationError("End time must be after start time.")
+        if self.occurrence and self.occurrence.session_type != SessionSeries.SessionType.FREE_PRACTICE:
+            raise ValidationError("Slots are reserved for free practice occurrences.")
         start_dt = dt.datetime.combine(self.occurrence.session_date, self.start_time)
         end_dt = dt.datetime.combine(self.occurrence.session_date, self.end_time)
         if end_dt - start_dt > MAX_SLOT_DURATION:

@@ -6,6 +6,10 @@
       <p class="page-kicker">Corrections manuelles</p>
       <h1 class="page-title">Inscrits · {{ occurrence.label }}</h1>
       <p class="page-lead">{{ occurrence.session_date }} · {{ occurrence.start_time }} - {{ occurrence.end_time }}</p>
+      <div class="meta-list">
+        <span class="meta-pill">{{ occurrence.get_session_type_display }}</span>
+        <span class="meta-pill">Prof: {{ occurrence.display_teacher.full_name|default:"non assigné" }}</span>
+      </div>
     </div>
 
     <div class="card form-card">
@@ -39,7 +43,7 @@
       <div class="table-wrap">
         <table class="table table-stack">
           <thead>
-            <tr><th>Nom</th><th>Email</th><th>Statut</th><th>Action</th></tr>
+            <tr><th>Nom</th><th>Email</th><th>Statut</th><th>Reprise</th><th>Action</th></tr>
           </thead>
           <tbody>
             {% for reservation in reservations %}
@@ -47,6 +51,13 @@
                 <td data-label="Nom">{{ reservation.user.full_name }}</td>
                 <td data-label="Email">{{ reservation.user.email }}</td>
                 <td data-label="Statut"><span class="badge status-success">Inscrit</span></td>
+                <td data-label="Reprise">
+                  {% if reservation.user.id in inconsistencies %}
+                    <span class="badge status-danger">droit retiré, reprise manuelle</span>
+                  {% else %}
+                    <span class="badge status-neutral">cohérent</span>
+                  {% endif %}
+                </td>
                 <td data-label="Action">
                   <form method="post" action="{% url 'bookings_admin:remove-reservation' occurrence_id=occurrence.id user_id=reservation.user.id %}">
                     {% csrf_token %}
@@ -55,7 +66,7 @@
                 </td>
               </tr>
             {% empty %}
-              <tr><td colspan="4">Aucun inscrit.</td></tr>
+              <tr><td colspan="5">Aucun inscrit.</td></tr>
             {% endfor %}
           </tbody>
         </table>

@@ -18,6 +18,7 @@ class UserManager(BaseUserManager):
 
     def create_user(self, email, password=None, **extra_fields):
         extra_fields.setdefault("role", User.Role.MEMBER)
+        extra_fields.setdefault("password_state", User.PasswordState.ACTIVE)
         return self._create_user(email, password, **extra_fields)
 
     def create_superuser(self, email, password, **extra_fields):
@@ -49,12 +50,21 @@ class User(AbstractBaseUser, PermissionsMixin):
         on_delete=models.SET_NULL,
         related_name="granted_responsable_accreditations",
     )
+    has_orange_passport = models.BooleanField(default=False)
+    orange_passport_granted_at = models.DateTimeField(null=True, blank=True)
+    orange_passport_granted_by = models.ForeignKey(
+        "self",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="granted_orange_passports",
+    )
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     password_state = models.CharField(
         max_length=20,
         choices=PasswordState.choices,
-        default=PasswordState.TEMPORARY,
+        default=PasswordState.ACTIVE,
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -76,6 +86,12 @@ class User(AbstractBaseUser, PermissionsMixin):
     def can_cover_slots(self) -> bool:
         return self.is_active and (self.is_admin_role or self.is_responsable_accredited)
 
+    @property
+    def can_book_free_practice(self) -> bool:
+        return self.is_active and (
+            self.is_admin_role or self.is_responsable_accredited or self.has_orange_passport
+        )
+
     def grant_responsable_accreditation(self, *, actor=None):
         self.is_responsable_accredited = True
         self.responsable_accredited_at = timezone.now()
@@ -83,6 +99,21 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def revoke_responsable_accreditation(self):
         self.is_responsable_accredited = False
+
+    def grant_orange_passport(self, *, actor=None):
+        self.has_orange_passport = True
+        self.orange_passport_granted_at = timezone.now()
+        self.orange_passport_granted_by = actor
+
+    def revoke_orange_passport(self):
+        self.has_orange_passport = False
+
+    def set_temporary_password(self, raw_password: str, *, state: str | None = None):
+        self.set_password(raw_password)
+        self.password_state = state or self.PasswordState.TEMPORARY
+
+    def mark_password_active(self):
+        self.password_state = self.PasswordState.ACTIVE
 
     def __str__(self) -> str:
         return self.full_name or self.email

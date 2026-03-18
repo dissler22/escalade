@@ -29,6 +29,9 @@
               {% if entry.slot %}
                 <p><strong>Créneau:</strong> #{{ entry.slot.sequence_index }} · {{ entry.slot.start_time }} - {{ entry.slot.end_time }}</p>
               {% endif %}
+              {% if entry.metadata_snapshot %}
+                <p><strong>Données:</strong> {{ entry.metadata_snapshot }}</p>
+              {% endif %}
               <p><strong>Motif:</strong> {{ entry.reason|default:"-" }}</p>
             </div>
           </article>
