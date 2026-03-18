@@ -4,8 +4,18 @@
 
 - VM Google Cloud `instance-20260307-190711`
 - Zone `us-central1-f`
+- Projet Google Cloud `escalade-489519`
 - IP publique initiale `34.71.54.146`
 - Stack: Nginx + Gunicorn + Django + SQLite sur la meme machine
+
+## Acces SSH operateur
+
+- L'acces SSH operateur valide depuis un terminal local passe par `gcloud`, pas par un `ssh user@34.71.54.146` brut.
+- Authentifier d'abord le poste local avec `gcloud auth login`.
+- Selectionner ensuite le projet avec `gcloud config set project escalade-489519`.
+- Ouvrir une session avec `gcloud compute ssh instance-20260307-190711 --zone=us-central1-f`.
+- Au premier lancement, `gcloud` peut generer une paire de cles SSH locale dans `~/.ssh/`.
+- Une fois l'acces `gcloud compute ssh` valide, generer les alias SSH locaux avec `gcloud compute config-ssh` si besoin.
 
 ## Exigences machine
 

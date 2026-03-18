@@ -7,18 +7,12 @@
     <div class="card page-intro">
       <p class="page-kicker">Accès de compatibilité</p>
       <h1 class="page-title">{{ occurrence.label }}</h1>
-      <p class="page-lead">
-        Le détail complet se consulte désormais directement sous la vue hebdomadaire
-        pour limiter les changements de page.
-      </p>
+      <p class="page-lead">Le détail complet est maintenant sous la vue semaine.</p>
     </div>
 
     <section class="card stack">
       <p class="detail-copy">{{ occurrence.session_date }} · {{ occurrence.start_time }} - {{ occurrence.end_time }}</p>
-      <p class="helper-copy">
-        Si cette séance est encore à venir, le lien ci-dessous ouvre directement la
-        bonne semaine avec la séance déjà sélectionnée.
-      </p>
+      <p class="helper-copy">Le lien ci-dessous ouvre la semaine avec cette séance sélectionnée.</p>
       <div class="actions">
         <a class="button" href="{{ calendar_url }}">Ouvrir le calendrier</a>
         <a class="button secondary" href="{% url 'bookings:my-reservations' %}">Mes réservations</a>

@@ -7,13 +7,10 @@
     <div class="card page-intro">
       <p class="page-kicker">Parcours adhérent</p>
       <h1 class="page-title">Séances ouvertes</h1>
-      <p class="page-lead">
-        Consultez la semaine par jour, repérez rapidement les séances utiles, puis
-        utilisez le détail juste en dessous sans multiplier les changements de page.
-      </p>
+      <p class="page-lead">Vue semaine, détail juste en dessous.</p>
       <div class="meta-list">
         <span class="meta-pill">{{ week.week_start|date:"j M" }} - {{ week.week_end|date:"j M" }}</span>
-        <span class="meta-pill">Une seule semaine, plusieurs séances par jour si besoin</span>
+        <span class="meta-pill">Une semaine, plusieurs séances par jour</span>
       </div>
     </div>
 
@@ -22,7 +19,6 @@
         <div>
           <p class="section-kicker">Planning hebdomadaire</p>
           <h2 class="section-title">Semaine du {{ week.week_start|date:"j F" }}</h2>
-          <p class="section-note">Vue compacte par jour, sans colonne horaire vide.</p>
         </div>
         <div class="actions">
           <a class="button secondary" href="{% url 'sessions:session-list' %}?week_start={{ week.previous_week_start_iso }}">Semaine précédente</a>

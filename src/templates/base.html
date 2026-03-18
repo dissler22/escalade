@@ -5,48 +5,67 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{% block title %}USMV Escalade{% endblock %}</title>
     {% load static %}
-    <link rel="stylesheet" href="{% static 'css/app.css' %}" />
+    <link rel="stylesheet" href="{% static 'css/app.css' %}?v=20260312-mobile-header-toggle" />
   </head>
   <body class="app-shell{% if request.user.is_authenticated %} is-authenticated role-{{ request.user.role }}{% else %} is-guest{% endif %}">
-    <header class="site-header">
-      <div class="site-header__inner">
-        <div class="brand-panel">
-          <p class="eyebrow">Club USMV</p>
+    <header class="site-header" data-mobile-header>
+      <button
+        class="site-header__toggle"
+        type="button"
+        aria-expanded="false"
+        aria-controls="site-header-panel"
+        data-mobile-header-toggle
+      >
+        <span class="site-header__toggle-copy">
+          <span class="site-header__toggle-label">Menu et infos</span>
           {% if request.user.is_authenticated %}
-            <a class="brand" href="{% url 'sessions:session-list' %}">USM Viroflay Escalade</a>
+            <span class="site-header__toggle-meta">{{ request.user.full_name }}</span>
           {% else %}
-            <a class="brand" href="{% url 'accounts:login' %}">USM Viroflay Escalade</a>
+            <span class="site-header__toggle-meta">USM Viroflay Escalade</span>
           {% endif %}
-          <p class="brand-subtitle">Réservation des séances de pratique libre</p>
+        </span>
+        <span class="site-header__toggle-indicator" aria-hidden="true"></span>
+      </button>
+      <div class="site-header__panel" id="site-header-panel">
+        <div class="site-header__inner">
+          <div class="brand-panel">
+            <p class="eyebrow">Club USMV</p>
+            {% if request.user.is_authenticated %}
+              <a class="brand" href="{% url 'sessions:session-list' %}">USM Viroflay Escalade</a>
+            {% else %}
+              <a class="brand" href="{% url 'accounts:login' %}">USM Viroflay Escalade</a>
+            {% endif %}
+            <p class="brand-subtitle">Réservation des séances de pratique libre</p>
+          </div>
+          <div class="header-meta">
+            {% if request.user.is_authenticated %}
+              <p class="context-label">
+                {% if request.user.role == "admin" %}
+                  Repère administrateur
+                {% else %}
+                  Repère adhérent
+                {% endif %}
+              </p>
+              <p class="meta">{{ request.user.full_name }} · {{ request.user.get_role_display }}</p>
+            {% else %}
+              <p class="context-label">Accès club</p>
+              <p class="meta">Connexion réservée aux adhérents et aux administrateurs</p>
+            {% endif %}
+          </div>
         </div>
-        <div class="header-meta">
-          {% if request.user.is_authenticated %}
-            <p class="context-label">
-              {% if request.user.role == "admin" %}
-                Repère administrateur
-              {% else %}
-                Repère adhérent
-              {% endif %}
-            </p>
-            <p class="meta">{{ request.user.full_name }} · {{ request.user.get_role_display }}</p>
-          {% else %}
-            <p class="context-label">Accès club</p>
-            <p class="meta">Connexion réservée aux adhérents et aux administrateurs</p>
-          {% endif %}
-        </div>
+        {% if request.user.is_authenticated %}
+          <nav class="nav" aria-label="Navigation principale">
+            <a class="nav-link{% if request.resolver_match.namespace == 'sessions' %} is-current{% endif %}" href="{% url 'sessions:session-list' %}">Séances</a>
+            <a class="nav-link{% if request.resolver_match.namespace == 'bookings' %} is-current{% endif %}" href="{% url 'bookings:my-reservations' %}">Mes réservations</a>
+            {% if request.user.role == "admin" %}
+              <a class="nav-link{% if request.resolver_match.namespace == 'sessions_admin' or request.resolver_match.namespace == 'bookings_admin' or request.resolver_match.namespace == 'audit' %} is-current{% endif %}" href="{% url 'sessions_admin:series-list' %}">Administration</a>
+              <a class="nav-link{% if request.resolver_match.namespace == 'accounts_admin' and request.resolver_match.url_name == 'account-list' %} is-current{% endif %}" href="{% url 'accounts_admin:account-list' %}">Comptes</a>
+              <a class="nav-link{% if request.resolver_match.namespace == 'accounts_admin' and request.resolver_match.url_name == 'email-automation' %} is-current{% endif %}" href="{% url 'accounts_admin:email-automation' %}">Automatisation mails</a>
+            {% endif %}
+            <a class="nav-link nav-link--quiet" href="{% url 'accounts:logout' %}">Se déconnecter</a>
+          </nav>
+        {% endif %}
       </div>
-      {% if request.user.is_authenticated %}
-        <nav class="nav" aria-label="Navigation principale">
-          <a class="nav-link{% if request.resolver_match.namespace == 'sessions' %} is-current{% endif %}" href="{% url 'sessions:session-list' %}">Séances</a>
-          <a class="nav-link{% if request.resolver_match.namespace == 'bookings' %} is-current{% endif %}" href="{% url 'bookings:my-reservations' %}">Mes réservations</a>
-          {% if request.user.role == "admin" %}
-            <a class="nav-link{% if request.resolver_match.namespace == 'sessions_admin' or request.resolver_match.namespace == 'bookings_admin' or request.resolver_match.namespace == 'audit' %} is-current{% endif %}" href="{% url 'sessions_admin:series-list' %}">Administration</a>
-            <a class="nav-link{% if request.resolver_match.namespace == 'accounts_admin' and request.resolver_match.url_name == 'account-list' %} is-current{% endif %}" href="{% url 'accounts_admin:account-list' %}">Comptes</a>
-            <a class="nav-link{% if request.resolver_match.namespace == 'accounts_admin' and request.resolver_match.url_name == 'email-automation' %} is-current{% endif %}" href="{% url 'accounts_admin:email-automation' %}">Automatisation mails</a>
-          {% endif %}
-          <a class="nav-link nav-link--quiet" href="{% url 'accounts:logout' %}">Se déconnecter</a>
-        </nav>
-      {% endif %}
     </header>
     <main class="page-shell">
       {% if messages %}
@@ -61,5 +80,21 @@
       {% endif %}
       {% block content %}{% endblock %}
     </main>
+    <script>
+      (() => {
+        const header = document.querySelector("[data-mobile-header]");
+        const toggle = document.querySelector("[data-mobile-header-toggle]");
+
+        if (!header || !toggle) {
+          return;
+        }
+
+        header.classList.add("has-mobile-toggle");
+        toggle.addEventListener("click", () => {
+          const isOpen = header.classList.toggle("is-open");
+          toggle.setAttribute("aria-expanded", String(isOpen));
+        });
+      })();
+    </script>
   </body>
 </html>
