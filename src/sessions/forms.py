@@ -5,7 +5,7 @@ from .models import EmailAutomationSettings, SessionOccurrence, SessionSeries
 
 
 def _teacher_queryset():
-    return get_user_model().objects.filter(is_active=True).exclude(email="").order_by("full_name")
+    return get_user_model().objects.filter(is_active=True).order_by("full_name")
 
 
 class SessionSeriesForm(forms.ModelForm):

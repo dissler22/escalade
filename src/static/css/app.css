@@ -414,6 +414,11 @@ form,
   gap: 1rem;
 }
 
+.session-card.is-cancelled {
+  border-color: rgba(166, 55, 50, 0.32);
+  background: linear-gradient(135deg, rgba(249, 226, 224, 0.96), #fff);
+}
+
 .session-meta,
 .actions,
 .inline-form,

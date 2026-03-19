@@ -3,6 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import formats
 
 from sessions.models import SessionOccurrence
 from sessions.services import (
@@ -85,6 +86,19 @@ def my_reservations(request: HttpRequest) -> HttpResponse:
     reservation_cards = [
         {
             "reservation": reservation,
+            "occurrence_id": reservation.occurrence_id,
+            "date_label": (
+                formats.date_format(reservation.occurrence.session_date, "d/m/Y")
+                if reservation.occurrence and reservation.occurrence.session_date
+                else ""
+            ),
+            "time_label": (
+                f"{reservation.occurrence.start_time:%H:%M} - {reservation.occurrence.end_time:%H:%M}"
+                if reservation.occurrence
+                and reservation.occurrence.start_time
+                and reservation.occurrence.end_time
+                else ""
+            ),
             "calendar_url": build_member_calendar_url(
                 week_start=get_occurrence_week_start(reservation.occurrence),
                 selected_occurrence=reservation.occurrence_id,

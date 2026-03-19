@@ -3,6 +3,8 @@ from django.contrib.auth import get_user_model
 from django.urls import reverse
 from django.test import override_settings
 
+from accounts.identity import TEMPORARY_ACCESS_CODE
+
 
 @pytest.mark.django_db
 def test_member_must_login_to_access_sessions(client):
@@ -17,7 +19,7 @@ def test_inactive_user_cannot_login(client, member_user):
     member_user.save()
     response = client.post(
         reverse("accounts:login"),
-        {"email": member_user.email, "password": "memberpass123"},
+        {"first_name": "Member", "last_name": "User", "password": "memberpass123"},
         follow=True,
     )
     assert "Identifiants invalides" in response.content.decode()
@@ -49,22 +51,22 @@ def test_member_can_log_in_from_public_entry_and_reach_sessions(client, member_u
 
     response = client.post(
         reverse("accounts:login"),
-        {"email": member_user.email, "password": "memberpass123"},
+        {"first_name": "Member", "last_name": "User", "password": "memberpass123"},
         follow=True,
         HTTP_HOST="34.71.54.146",
     )
     assert response.status_code == 200
     html = response.content.decode()
     assert "Repère adhérent" in html
-    assert "Séances ouvertes" in html
-    assert "Planning hebdomadaire" in html
+    assert "Semaine du" in html
+    assert "Séances" in html
 
 
 @pytest.mark.django_db
 def test_temporary_password_forces_password_change_flow(client):
     user = get_user_model().objects.create_user(
-        email="temp-user@example.com",
-        password="tempcode123",
+        email=None,
+        password=TEMPORARY_ACCESS_CODE,
         full_name="Temp User",
         role="member",
         password_state="temporary",
@@ -72,7 +74,7 @@ def test_temporary_password_forces_password_change_flow(client):
 
     response = client.post(
         reverse("accounts:login"),
-        {"email": user.email, "password": "tempcode123"},
+        {"first_name": "Temp", "last_name": "User", "password": TEMPORARY_ACCESS_CODE},
         follow=True,
     )
 
@@ -80,7 +82,7 @@ def test_temporary_password_forces_password_change_flow(client):
     assert response.request["PATH_INFO"] == reverse("accounts:password-change")
     html = response.content.decode()
     assert "Code temporaire detecte" in html
-    assert "Définir votre mot de passe" in html
+    assert "Définir votre email et votre code" in html
     assert "Séances" not in html
     assert "Mes réservations" not in html
     assert "Se déconnecter" not in html
@@ -88,7 +90,8 @@ def test_temporary_password_forces_password_change_flow(client):
     response = client.post(
         reverse("accounts:password-change"),
         {
-            "old_password": "tempcode123",
+            "email": "temp-user@example.com",
+            "old_password": TEMPORARY_ACCESS_CODE,
             "new_password1": "nouveau-code-456",
             "new_password2": "nouveau-code-456",
         },
@@ -98,8 +101,28 @@ def test_temporary_password_forces_password_change_flow(client):
     assert response.status_code == 200
     user.refresh_from_db()
     assert user.password_state == user.PasswordState.ACTIVE
+    assert user.email == "temp-user@example.com"
     assert response.request["PATH_INFO"] == reverse("sessions:session-list")
     assert "Mon code" not in response.content.decode()
+
+
+@pytest.mark.django_db
+def test_login_accepts_name_without_accents_or_special_chars(client):
+    get_user_model().objects.create_user(
+        email="quentin@example.com",
+        password="codeperso123",
+        full_name="Quentin D'humières",
+        role="member",
+    )
+
+    response = client.post(
+        reverse("accounts:login"),
+        {"first_name": "Quentin", "last_name": "Dhumieres", "password": "codeperso123"},
+        follow=True,
+    )
+
+    assert response.status_code == 200
+    assert response.request["PATH_INFO"] == reverse("sessions:session-list")
 
 
 @pytest.mark.django_db

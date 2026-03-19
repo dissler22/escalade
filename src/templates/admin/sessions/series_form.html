@@ -20,11 +20,130 @@
         </div>
       </form>
       {% if series %}
-        <form method="post" action="{% url 'sessions_admin:series-delete' series_id=series.id %}">
-          {% csrf_token %}
-          <button type="submit" class="danger">Supprimer cette série</button>
-        </form>
+        <details class="card surface-card">
+          <summary>Supprimer cette série</summary>
+          <div class="stack-sm">
+            <div class="detail-copy">{{ series_delete_confirmation|linebreaksbr }}</div>
+            <form method="post" action="{% url 'sessions_admin:series-delete' series_id=series.id %}">
+              {% csrf_token %}
+              <button type="submit" class="danger">Confirmer la suppression</button>
+            </form>
+          </div>
+        </details>
       {% endif %}
     </section>
+
+    {% if series and series.session_type == "free_practice" %}
+      <section class="card table-card">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">Créneaux responsables</p>
+            <h2>Occurrences liées à la série</h2>
+          </div>
+        </div>
+        <div class="stack">
+          {% for occurrence in series.occurrences.all %}
+            <article class="card slot-card slot-card--admin">
+              <div class="section-heading">
+                <div>
+                  <p class="section-kicker">{{ occurrence.session_date }}</p>
+                  <h2>{{ occurrence.label }}</h2>
+                </div>
+                <a class="button secondary" href="{% url 'sessions_admin:occurrence-edit' occurrence_id=occurrence.id %}">Ouvrir la séance</a>
+              </div>
+
+              <div class="session-meta">
+                <span class="badge {% if occurrence.coverage_summary.uncovered %}status-danger{% else %}status-success{% endif %}">
+                  {{ occurrence.coverage_summary.covered }}/{{ occurrence.coverage_summary.total }} créneaux avec responsable
+                </span>
+              </div>
+
+              {% for slot in occurrence.slots.all %}
+                <article class="card slot-card slot-card--admin">
+                  <div class="session-meta">
+                    <span class="badge status-{{ slot.status }}">{{ slot.get_status_display }}</span>
+                    <span class="badge {% if slot.coverage_status == 'covered' %}status-success{% elif slot.coverage_status == 'cancelled' %}status-danger{% else %}status-warning{% endif %}">
+                      {% if slot.current_responsable %}
+                        {{ slot.current_responsable.full_name }}
+                      {% elif slot.coverage_status == 'cancelled' %}
+                        créneau annulé
+                      {% else %}
+                        sans responsable
+                      {% endif %}
+                    </span>
+                  </div>
+
+                  <form method="post" action="{% url 'sessions_admin:slot-edit' slot_id=slot.id %}" class="inline-form slot-edit-grid">
+                    {% csrf_token %}
+                    <input type="hidden" name="return_to" value="{{ series_return_to }}" />
+                    <label>
+                      Début
+                      <input type="time" name="start_time" value="{{ slot.start_time|time:'H:i' }}" />
+                    </label>
+                    <label>
+                      Fin
+                      <input type="time" name="end_time" value="{{ slot.end_time|time:'H:i' }}" />
+                    </label>
+                    <label>
+                      Capacité
+                      <input type="number" name="capacity" min="1" value="{{ slot.capacity }}" />
+                    </label>
+                    <label>
+                      Statut
+                      <select name="status">
+                        <option value="open" {% if slot.status == "open" %}selected{% endif %}>Open</option>
+                        <option value="cancelled" {% if slot.status == "cancelled" %}selected{% endif %}>Cancelled</option>
+                      </select>
+                    </label>
+                    <button type="submit" class="secondary">Corriger le créneau</button>
+                  </form>
+
+                  <div class="table-actions">
+                    <form method="post" action="{% url 'sessions_admin:slot-assign-responsable' slot_id=slot.id %}" class="inline-form">
+                      {% csrf_token %}
+                      <input type="hidden" name="return_to" value="{{ series_return_to }}" />
+                      <select name="user_id">
+                        {% for user in responsable_candidates %}
+                          {% if user.can_cover_slots %}
+                            <option value="{{ user.id }}">{{ user.full_name }} · {{ user.email }}</option>
+                          {% endif %}
+                        {% endfor %}
+                      </select>
+                      <button type="submit">Affecter un responsable</button>
+                    </form>
+
+                    {% if slot.current_responsable %}
+                      <form method="post" action="{% url 'sessions_admin:slot-release-responsable' slot_id=slot.id %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="return_to" value="{{ series_return_to }}" />
+                        <button type="submit" class="ghost">Retirer le responsable</button>
+                      </form>
+                    {% endif %}
+
+                    <form method="post" action="{% url 'sessions_admin:slot-delete' slot_id=slot.id %}" class="inline-form">
+                      {% csrf_token %}
+                      <input type="hidden" name="return_to" value="{{ series_return_to }}" />
+                      <button type="submit" class="danger">Supprimer ce créneau</button>
+                    </form>
+                  </div>
+                </article>
+              {% empty %}
+                <div class="card empty-state">
+                  <p class="section-kicker">Découpage</p>
+                  <h2>Aucun créneau généré</h2>
+                  <p>Cette occurrence n a actuellement aucun créneau responsable. C est autorisé.</p>
+                </div>
+              {% endfor %}
+            </article>
+          {% empty %}
+            <div class="card empty-state">
+              <p class="section-kicker">Occurrences</p>
+              <h2>Aucune occurrence liée</h2>
+              <p>La série n a pas encore généré d occurrences à éditer.</p>
+            </div>
+          {% endfor %}
+        </div>
+      </section>
+    {% endif %}
   </section>
 {% endblock %}

@@ -1,4 +1,5 @@
 import datetime as dt
+import unicodedata
 from dataclasses import dataclass
 from urllib.parse import urlencode
 
@@ -429,6 +430,40 @@ def _shorten_occurrence_label(label: str) -> str:
     return shortened
 
 
+def _truncate_calendar_label(label: str) -> str:
+    shortened = " ".join((label or "").split())
+    if not shortened:
+        return "Seance"
+    if len(shortened) > 22:
+        return f"{shortened[:19].rstrip()}..."
+    return shortened
+
+
+def _normalize_calendar_label(label: str) -> str:
+    normalized = unicodedata.normalize("NFKD", label or "")
+    ascii_only = "".join(char for char in normalized if not unicodedata.combining(char))
+    return " ".join(ascii_only.casefold().split())
+
+
+def _is_generic_calendar_label(label: str) -> bool:
+    normalized = _normalize_calendar_label(label)
+    return normalized in {
+        "",
+        "pratique libre",
+        "seance",
+        "session",
+    }
+
+
+def _calendar_display_label(occurrence: SessionOccurrence) -> str:
+    if not _is_generic_calendar_label(occurrence.label):
+        return _shorten_occurrence_label(occurrence.label)
+    if occurrence.series is not None and not _is_generic_calendar_label(occurrence.series.label):
+        return _shorten_occurrence_label(occurrence.series.label)
+    session_type_label = occurrence.get_session_type_display() or occurrence.label or "Seance"
+    return _truncate_calendar_label(session_type_label)
+
+
 def _build_day_blocks(day_occurrences: list[SessionOccurrence], *, selected_occurrence_id: int | None) -> list[CalendarOccurrenceBlock]:
     blocks: list[CalendarOccurrenceBlock] = []
     
@@ -500,7 +535,7 @@ def _build_day_blocks(day_occurrences: list[SessionOccurrence], *, selected_occu
             CalendarOccurrenceBlock(
                 occurrence=occurrence,
                 occurrence_id=occurrence.id,
-                display_label_short=_shorten_occurrence_label(occurrence.label),
+                display_label_short=_calendar_display_label(occurrence),
                 session_type=occurrence.session_type,
                 session_type_label=_session_type_label(occurrence.session_type),
                 session_type_class=_session_type_class(occurrence.session_type),
@@ -784,16 +819,34 @@ def create_series(*, actor, cleaned_data, weeks=8):
         return series
 
 
+def _build_future_series_dates(*, weekday, count, reference_date=None):
+    if reference_date is None:
+        reference_date = timezone.localdate()
+    target_dates = []
+    for offset in range(count):
+        day = reference_date + dt.timedelta(days=offset * 7)
+        target_date = day + dt.timedelta((weekday - day.weekday()) % 7)
+        target_dates.append(target_date)
+    return target_dates
+
+
 def update_series(*, actor, series, cleaned_data):
     previous_session_type = series.session_type
     previous_default_teacher_id = series.default_teacher_id
+    previous_weekday = series.weekday
     for field, value in cleaned_data.items():
         setattr(series, field, value)
     series.full_clean()
     with transaction.atomic():
         series.save()
-        for occurrence in series.occurrences.all():
+        occurrences = list(series.occurrences.all().order_by("session_date", "id"))
+        target_dates = _build_future_series_dates(
+            weekday=series.weekday,
+            count=len(occurrences),
+        )
+        for occurrence, target_date in zip(occurrences, target_dates, strict=True):
             occurrence.label = series.label
+            occurrence.session_date = target_date
             occurrence.start_time = series.start_time
             occurrence.end_time = series.end_time
             occurrence.capacity = series.default_capacity
@@ -806,19 +859,21 @@ def update_series(*, actor, series, cleaned_data):
             occurrence.full_clean()
             occurrence.save()
             sync_occurrence_slots(actor=actor, occurrence=occurrence)
-        record_event(
-            actor=actor,
-            action_type="session_series_updated",
-            target_type="session_series",
-            target_id=series.pk,
-            metadata={
-                "label": series.label,
-                "default_capacity": series.default_capacity,
-                "session_type": series.session_type,
-                "default_teacher_id": series.default_teacher_id,
-                "previous_session_type": previous_session_type,
-            },
-        )
+            record_event(
+                actor=actor,
+                action_type="session_series_updated",
+                target_type="session_series",
+                target_id=series.pk,
+                metadata={
+                    "label": series.label,
+                    "weekday": series.weekday,
+                    "default_capacity": series.default_capacity,
+                    "session_type": series.session_type,
+                    "default_teacher_id": series.default_teacher_id,
+                    "previous_weekday": previous_weekday,
+                    "previous_session_type": previous_session_type,
+                },
+            )
     return series
 
 
@@ -848,36 +903,18 @@ def generate_future_occurrences(*, series, actor, weeks=8):
     return created
 
 
-def sync_occurrence_slots(*, actor, occurrence):
+def sync_occurrence_slots(*, actor, occurrence, create_defaults_if_empty=True):
     if occurrence.is_course:
         if occurrence.slots.exists():
-            if any(_slot_has_commitments(slot) for slot in occurrence.slots.all()):
-                raise ValidationError(
-                    "Impossible de supprimer les creneaux responsables d une occurrence de cours ayant deja des engagements."
-                )
             occurrence.slots.all().delete()
         return []
-    expected_segments = _get_slot_segments(
-        session_date=occurrence.session_date,
-        start_time=occurrence.start_time,
-        end_time=occurrence.end_time,
-    )
     existing_slots = list(occurrence.slots.order_by("sequence_index"))
-    existing_signature = [(slot.sequence_index, slot.start_time, slot.end_time) for slot in existing_slots]
-    expected_signature = [
-        (segment["sequence_index"], segment["start_time"], segment["end_time"])
-        for segment in expected_segments
-    ]
-
-    if existing_slots and existing_signature != expected_signature:
-        if any(_slot_has_commitments(slot) for slot in existing_slots):
-            raise ValidationError(
-                "Impossible de recalculer automatiquement les creneaux avec des reservations ou responsabilites actives."
-            )
-        occurrence.slots.all().delete()
-        existing_slots = []
-
-    if not existing_slots:
+    if not existing_slots and create_defaults_if_empty:
+        expected_segments = _get_slot_segments(
+            session_date=occurrence.session_date,
+            start_time=occurrence.start_time,
+            end_time=occurrence.end_time,
+        )
         created_slots = []
         for segment in expected_segments:
             slot = SessionSlot.objects.create(
@@ -901,16 +938,14 @@ def sync_occurrence_slots(*, actor, occurrence):
         return created_slots
 
     updated_slots = []
-    for slot, segment in zip(existing_slots, expected_segments, strict=True):
+    for index, slot in enumerate(existing_slots, start=1):
         active_count = slot.reservations.active().count()
         if occurrence.capacity < active_count:
             raise ValidationError("La capacite ne peut pas etre inferieure aux reservations actives d un creneau.")
         changed = False
-        for field in ("sequence_index", "start_time", "end_time"):
-            new_value = segment[field]
-            if getattr(slot, field) != new_value:
-                setattr(slot, field, new_value)
-                changed = True
+        if slot.sequence_index != index:
+            slot.sequence_index = index
+            changed = True
         if slot.capacity != occurrence.capacity:
             slot.capacity = occurrence.capacity
             changed = True
@@ -945,7 +980,7 @@ def create_occurrence(*, actor, cleaned_data):
         if cleaned_data.get("session_type") == SessionSeries.SessionType.FREE_PRACTICE:
             cleaned_data["teacher"] = None
         occurrence = SessionOccurrence.objects.create(created_by=actor, **cleaned_data)
-        sync_occurrence_slots(actor=actor, occurrence=occurrence)
+        sync_occurrence_slots(actor=actor, occurrence=occurrence, create_defaults_if_empty=True)
         record_event(
             actor=actor,
             action_type="session_occurrence_created",
@@ -983,7 +1018,7 @@ def update_occurrence(*, actor, occurrence, cleaned_data, mark_override=False):
     occurrence.full_clean()
     with transaction.atomic():
         occurrence.save()
-        sync_occurrence_slots(actor=actor, occurrence=occurrence)
+        sync_occurrence_slots(actor=actor, occurrence=occurrence, create_defaults_if_empty=False)
         record_event(
             actor=actor,
             action_type="session_occurrence_updated",
@@ -1127,6 +1162,26 @@ def change_slot_status(*, actor, slot, status, reason="", automatic=False):
         metadata={"status": status},
     )
     return slot
+
+
+def delete_slot(*, actor, slot):
+    occurrence = slot.occurrence
+    slot_id = slot.pk
+    with transaction.atomic():
+        slot.delete()
+        remaining_slots = list(occurrence.slots.order_by("sequence_index", "id"))
+        for index, remaining_slot in enumerate(remaining_slots, start=1):
+            if remaining_slot.sequence_index != index:
+                remaining_slot.sequence_index = index
+                remaining_slot.save(update_fields=["sequence_index"])
+        record_event(
+            actor=actor,
+            action_type="slot_deleted",
+            target_type="session_slot",
+            target_id=slot_id,
+            occurrence=occurrence,
+            metadata={"occurrence_id": occurrence.pk},
+        )
 
 
 def _validate_responsable_assignment(*, user, slot):

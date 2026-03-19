@@ -3,14 +3,19 @@ from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin
 from django.db import models
 from django.utils import timezone
 
+from .identity import build_login_key_from_full_name
+
 
 class UserManager(BaseUserManager):
     use_in_migrations = True
 
     def _create_user(self, email, password, **extra_fields):
-        if not email:
-            raise ValueError("Email is required")
-        email = self.normalize_email(email)
+        if not extra_fields.get("full_name"):
+            raise ValueError("Full name is required")
+        if email:
+            email = self.normalize_email(email).strip().lower()
+        else:
+            email = None
         user = self.model(email=email, **extra_fields)
         user.set_password(password)
         user.save(using=self._db)
@@ -22,6 +27,8 @@ class UserManager(BaseUserManager):
         return self._create_user(email, password, **extra_fields)
 
     def create_superuser(self, email, password, **extra_fields):
+        if not email:
+            raise ValueError("Superusers must have an email address")
         extra_fields.setdefault("role", User.Role.ADMIN)
         extra_fields.setdefault("is_staff", True)
         extra_fields.setdefault("is_superuser", True)
@@ -39,7 +46,8 @@ class User(AbstractBaseUser, PermissionsMixin):
         RESET_REQUIRED = "reset_required", "Reset required"
 
     full_name = models.CharField(max_length=255)
-    email = models.EmailField(unique=True)
+    login_key = models.CharField(max_length=255, unique=True, editable=False)
+    email = models.EmailField(unique=True, null=True, blank=True)
     role = models.CharField(max_length=20, choices=Role.choices, default=Role.MEMBER)
     is_responsable_accredited = models.BooleanField(default=False)
     responsable_accredited_at = models.DateTimeField(null=True, blank=True)
@@ -75,6 +83,14 @@ class User(AbstractBaseUser, PermissionsMixin):
     objects = UserManager()
 
     def save(self, *args, **kwargs):
+        self.full_name = (self.full_name or "").strip()
+        self.login_key = build_login_key_from_full_name(self.full_name)
+        if not self.login_key:
+            raise ValueError("Full name is required")
+        if self.email:
+            self.email = self.email.strip().lower()
+        else:
+            self.email = None
         self.is_staff = self.role == self.Role.ADMIN or self.is_superuser
         super().save(*args, **kwargs)
 

@@ -5,24 +5,38 @@
 {% block content %}
   <section class="stack-lg">
     {% for item in reservation_cards %}
-      {% with reservation=item.reservation %}
-      <article class="card session-card">
+      {% with reservation=item.reservation occurrence=reservation.occurrence %}
+      <article class="card session-card{% if occurrence.status == 'cancelled' %} is-cancelled{% endif %}">
         <div class="session-meta">
-          <span class="badge status-success">Réservation confirmée</span>
-          <span class="badge status-open">{{ reservation.occurrence.remaining_capacity }} place(s) restante(s)</span>
+          {% if occurrence.status == 'cancelled' or occurrence.status != 'open' %}
+            <span class="badge status-danger">Séance annulée</span>
+          {% else %}
+            <span class="badge status-success">Réservation confirmée</span>
+          {% endif %}
+          {% if occurrence.remaining_capacity is not None %}
+            <span class="badge status-open">{{ occurrence.remaining_capacity }} place(s) restante(s)</span>
+          {% endif %}
         </div>
-        <h2 class="item-title">{{ reservation.occurrence.label }}</h2>
+        <h2 class="item-title">{{ occurrence.label }}</h2>
         <p class="detail-copy">
-          {{ reservation.occurrence.session_date }} · {{ reservation.occurrence.start_time }} - {{ reservation.occurrence.end_time }}
+          {% if item.date_label and item.time_label %}
+            {{ item.date_label }} · {{ item.time_label }}
+          {% elif item.date_label %}
+            {{ item.date_label }}
+          {% else %}
+            {{ occurrence.session_date|date:"d/m/Y" }} · {{ occurrence.start_time|time:"H:i" }} - {{ occurrence.end_time|time:"H:i" }}
+          {% endif %}
         </p>
         <div class="actions">
           <a class="button ghost" href="{{ item.calendar_url }}">Ouvrir dans le calendrier</a>
-          <form method="post" action="{% url 'bookings:cancel-occurrence' occurrence_id=reservation.occurrence.id %}">
-            {% csrf_token %}
-            <input type="hidden" name="week_start" value="{{ item.week_start_iso }}" />
-            <input type="hidden" name="selected_occurrence" value="{{ reservation.occurrence.id }}" />
-            <button type="submit" class="secondary">Annuler</button>
-          </form>
+          {% if occurrence.status == 'open' and item.occurrence_id %}
+            <form method="post" action="{% url 'bookings:cancel-occurrence' occurrence_id=item.occurrence_id %}">
+              {% csrf_token %}
+              <input type="hidden" name="week_start" value="{{ item.week_start_iso }}" />
+              <input type="hidden" name="selected_occurrence" value="{{ item.occurrence_id }}" />
+              <button type="submit" class="secondary">Annuler</button>
+            </form>
+          {% endif %}
         </div>
       </article>
       {% endwith %}

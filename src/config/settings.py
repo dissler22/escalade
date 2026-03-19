@@ -148,6 +148,10 @@ if APP_LOG_PATH is not None:
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 AUTH_USER_MODEL = "accounts.User"
+AUTHENTICATION_BACKENDS = [
+    "accounts.auth_backends.NameAuthenticationBackend",
+    "django.contrib.auth.backends.ModelBackend",
+]
 LOGIN_URL = "accounts:login"
 LOGIN_REDIRECT_URL = "sessions:session-list"
 LOGOUT_REDIRECT_URL = "accounts:login"

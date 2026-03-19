@@ -2,8 +2,10 @@ import datetime as dt
 
 import pytest
 from django.urls import reverse
+from django.utils import timezone
 
 from sessions.models import CourseEnrollment, SessionOccurrence
+from sessions.models import SessionSeries, SessionSlot
 
 
 @pytest.mark.django_db
@@ -53,6 +55,54 @@ def test_calendar_distinguishes_free_practice_and_course(
     assert "Cours" in html
     assert "Prof: Teacher User" in html
     assert "sans logique référent" in html
+
+
+@pytest.mark.django_db
+def test_calendar_uses_series_label_when_free_practice_occurrence_label_is_generic(
+    client,
+    admin_user,
+    member_user,
+):
+    series = SessionSeries.objects.create(
+        label="Mardi soir",
+        weekday=1,
+        start_time=dt.time(19, 0),
+        end_time=dt.time(21, 0),
+        default_capacity=12,
+        session_type=SessionSeries.SessionType.FREE_PRACTICE,
+        created_by=admin_user,
+    )
+    occurrence = SessionOccurrence.objects.create(
+        series=series,
+        label="Pratique libre",
+        session_date=timezone.localdate() + dt.timedelta(days=7),
+        start_time=dt.time(19, 0),
+        end_time=dt.time(21, 0),
+        capacity=12,
+        session_type=SessionSeries.SessionType.FREE_PRACTICE,
+        status=SessionOccurrence.Status.OPEN,
+        created_by=admin_user,
+    )
+    SessionSlot.objects.create(
+        occurrence=occurrence,
+        sequence_index=1,
+        start_time=dt.time(19, 0),
+        end_time=dt.time(20, 30),
+        capacity=12,
+        status="open",
+    )
+
+    client.force_login(member_user)
+    week_start = (occurrence.session_date - dt.timedelta(days=occurrence.session_date.weekday())).isoformat()
+
+    response = client.get(
+        f"{reverse('sessions:session-list')}?week_start={week_start}&selected_occurrence={occurrence.pk}"
+    )
+
+    assert response.status_code == 200
+    html = response.content.decode()
+    assert "Mardi soir" in html
+    assert 'title="Seance (19:00 - 21:00)"' not in html
 
 
 @pytest.mark.django_db

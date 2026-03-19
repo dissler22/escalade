@@ -11,13 +11,13 @@
       </div>
     </div>
 
-    <section class="card table-card">
+    <section class="card table-card" id="series-section" data-panel-section="series">
       <div class="section-heading">
         <div>
           <p class="section-kicker">Cadres récurrents</p>
           <h2>Séries hebdomadaires</h2>
         </div>
-        <p class="section-note">{{ series_items|length }} série(s) configurée(s)</p>
+        <p class="section-note">{{ series_rows|length }} série(s) configurée(s)</p>
       </div>
       <div class="table-wrap">
         <table class="table table-stack table-stack--expandable">
@@ -25,7 +25,8 @@
             <tr><th>Label</th><th>Type</th><th>Jour</th><th>Prof par défaut</th><th>Capacité</th><th>Actions</th></tr>
           </thead>
           <tbody>
-            {% for item in series_items %}
+            {% for row in series_rows %}
+              {% with item=row.series %}
               <tr data-expandable-row>
                 <td data-label="Label">{{ item.label }}</td>
                 <td data-label="Type"><span class="badge {% if item.session_type == 'course' %}status-info{% else %}status-success{% endif %}">{{ item.get_session_type_display }}</span></td>
@@ -35,13 +36,20 @@
                 <td data-label="Actions">
                   <div class="table-actions">
                     <a class="button secondary" href="{% url 'sessions_admin:series-edit' series_id=item.id %}">Modifier</a>
-                    <form method="post" action="{% url 'sessions_admin:series-delete' series_id=item.id %}">
-                      {% csrf_token %}
-                      <button type="submit" class="danger">Supprimer</button>
-                    </form>
+                    <details class="card surface-card">
+                      <summary>Supprimer</summary>
+                      <div class="stack-sm">
+                        <div class="detail-copy">{{ row.delete_confirmation|linebreaksbr }}</div>
+                        <form method="post" action="{% url 'sessions_admin:series-delete' series_id=item.id %}">
+                          {% csrf_token %}
+                          <button type="submit" class="danger">Confirmer</button>
+                        </form>
+                      </div>
+                    </details>
                   </div>
                 </td>
               </tr>
+              {% endwith %}
             {% empty %}
               <tr><td colspan="6">Aucune série.</td></tr>
             {% endfor %}
@@ -50,13 +58,13 @@
       </div>
     </section>
 
-    <section class="card table-card">
+    <section class="card table-card" id="occurrences-section" data-panel-section="occurrences">
       <div class="section-heading">
         <div>
           <p class="section-kicker">Planning immédiat</p>
           <h2>Occurrences à venir</h2>
         </div>
-        <p class="section-note">Accès rapide aux éditions, inscrits et traces.</p>
+        <p class="section-note">Accès rapide à l’édition, aux inscrits, à l’audit et à l’annulation.</p>
       </div>
       <div class="table-wrap">
         <table class="table table-stack table-stack--expandable">
@@ -64,7 +72,8 @@
             <tr><th>Label</th><th>Date</th><th>Type</th><th>Prof</th><th>Couverture</th><th>Actions</th></tr>
           </thead>
           <tbody>
-            {% for occurrence in occurrences %}
+            {% for row in occurrence_rows %}
+              {% with occurrence=row.occurrence %}
               <tr data-expandable-row>
                 <td data-label="Label">{{ occurrence.label }}</td>
                 <td data-label="Date">{{ occurrence.session_date }}</td>
@@ -84,13 +93,23 @@
                     <a class="button secondary" href="{% url 'sessions_admin:occurrence-edit' occurrence_id=occurrence.id %}">Éditer</a>
                     <a class="button ghost" href="{% url 'bookings_admin:session-reservations' occurrence_id=occurrence.id %}">Inscrits</a>
                     <a class="button ghost" href="{% url 'audit:session-history' occurrence_id=occurrence.id %}">Audit</a>
-                    <form method="post" action="{% url 'sessions_admin:occurrence-delete' occurrence_id=occurrence.id %}">
+                    <form method="post" action="{% url 'sessions_admin:occurrence-status' occurrence_id=occurrence.id %}" class="inline-form">
                       {% csrf_token %}
-                      <button type="submit" class="danger">Supprimer</button>
+                      <input type="hidden" name="return_to" value="list" />
+                      {% if occurrence.status == "cancelled" %}
+                        <input type="hidden" name="status" value="open" />
+                        <input type="hidden" name="reason" value="admin_reopened_from_list" />
+                        <button type="submit" class="success">Réouvrir</button>
+                      {% else %}
+                        <input type="hidden" name="status" value="cancelled" />
+                        <input type="hidden" name="reason" value="admin_cancelled_from_list" />
+                        <button type="submit" class="danger">Annuler</button>
+                      {% endif %}
                     </form>
                   </div>
                 </td>
               </tr>
+              {% endwith %}
             {% empty %}
               <tr><td colspan="6">Aucune occurrence.</td></tr>
             {% endfor %}
@@ -102,6 +121,16 @@
 
   <script>
     (() => {
+      const panel = new URLSearchParams(window.location.search).get("panel");
+      if (panel) {
+        const section = document.querySelector(`[data-panel-section="${panel}"]`);
+        if (section) {
+          requestAnimationFrame(() => {
+            section.scrollIntoView({ block: "start" });
+          });
+        }
+      }
+
       document.querySelectorAll("[data-expandable-row]").forEach(row => {
         row.addEventListener("click", (e) => {
           // Si le clic est sur un bouton ou un lien, on ne fait rien

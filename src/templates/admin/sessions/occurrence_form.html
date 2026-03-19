@@ -38,10 +38,22 @@
           <input type="text" name="reason" placeholder="Motif optionnel" />
           <button type="submit" class="secondary">Mettre à jour le statut</button>
         </form>
-        <form method="post" action="{% url 'sessions_admin:occurrence-delete' occurrence_id=form.instance.id %}">
-          {% csrf_token %}
-          <button type="submit" class="danger">Supprimer cette séance</button>
-        </form>
+      </section>
+
+      <section class="card form-card">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">Danger</p>
+            <h2>Supprimer définitivement cette séance</h2>
+          </div>
+        </div>
+        <div class="stack-sm">
+          <div class="detail-copy">{{ occurrence_delete_confirmation|linebreaksbr }}</div>
+          <form method="post" action="{% url 'sessions_admin:occurrence-delete' occurrence_id=form.instance.id %}">
+            {% csrf_token %}
+            <button type="submit" class="danger">Supprimer cette séance</button>
+          </form>
+        </div>
       </section>
 
       <section class="card table-card">
@@ -132,11 +144,9 @@
                     </form>
                   {% endif %}
 
-                  <form method="post" action="{% url 'sessions_admin:slot-status' slot_id=slot.id %}" class="inline-form">
+                  <form method="post" action="{% url 'sessions_admin:slot-delete' slot_id=slot.id %}" class="inline-form">
                     {% csrf_token %}
-                    <input type="hidden" name="status" value="cancelled" />
-                    <input type="hidden" name="reason" value="admin_manual_slot_cancel" />
-                    <button type="submit" class="danger">Annuler ce créneau</button>
+                    <button type="submit" class="danger">Supprimer ce créneau</button>
                   </form>
                 </div>
               </article>
@@ -144,7 +154,7 @@
               <div class="card empty-state">
                 <p class="section-kicker">Découpage</p>
                 <h2>Aucun créneau généré</h2>
-                <p>Enregistrez la séance pour générer les créneaux responsables.</p>
+                <p>Cette séance n a actuellement aucun créneau responsable. C est autorisé.</p>
               </div>
             {% endfor %}
           </div>
@@ -158,4 +168,5 @@
       {% endif %}
     {% endif %}
   </section>
+
 {% endblock %}

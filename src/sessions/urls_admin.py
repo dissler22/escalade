@@ -15,6 +15,7 @@ urlpatterns = [
     path("occurrences/<int:occurrence_id>/status/", views_admin.occurrence_status, name="occurrence-status"),
     path("occurrences/<int:occurrence_id>/delete/", views_admin.occurrence_delete, name="occurrence-delete"),
     path("slots/<int:slot_id>/edit/", views_admin.slot_update_view, name="slot-edit"),
+    path("slots/<int:slot_id>/delete/", views_admin.slot_delete_view, name="slot-delete"),
     path("slots/<int:slot_id>/status/", views_admin.slot_status, name="slot-status"),
     path("slots/<int:slot_id>/responsable/assign/", views_admin.slot_assign_responsable, name="slot-assign-responsable"),
     path("slots/<int:slot_id>/responsable/release/", views_admin.slot_release_responsable, name="slot-release-responsable"),

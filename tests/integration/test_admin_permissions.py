@@ -2,7 +2,8 @@ import pytest
 from django.urls import reverse
 
 from django.contrib.auth import get_user_model
-from sessions.models import CourseEnrollment, EmailAutomationSettings
+from accounts.identity import TEMPORARY_ACCESS_CODE
+from sessions.models import CourseEnrollment, EmailAutomationSettings, SessionSeries
 
 
 @pytest.mark.django_db
@@ -27,7 +28,7 @@ def test_admin_can_open_account_admin(client, admin_user):
     response = client.get(reverse("accounts_admin:email-automation"))
     assert response.status_code == 200
     html = response.content.decode()
-    assert "Automatisation des mails" in html
+    assert "Jours avant la séance" in html
     assert "Placeholders disponibles" in html
 
 
@@ -77,7 +78,7 @@ def test_admin_can_create_account_with_temporary_password_and_course(client, adm
         reverse("accounts_admin:account-create"),
         {
             "full_name": "Claire Test",
-            "email": "claire@example.com",
+            "email": "",
             "role": "member",
             "is_responsable_accredited": "false",
             "has_orange_passport": "true",
@@ -88,9 +89,11 @@ def test_admin_can_create_account_with_temporary_password_and_course(client, adm
     )
 
     assert response.status_code == 200
-    created_user = get_user_model().objects.get(email="claire@example.com")
+    created_user = get_user_model().objects.get(full_name="Claire Test")
     assert created_user.password_state == created_user.PasswordState.TEMPORARY
     assert created_user.has_orange_passport is True
+    assert created_user.email is None
+    assert created_user.check_password(TEMPORARY_ACCESS_CODE)
     assert CourseEnrollment.objects.active().filter(user=created_user, series=course_series).exists()
     assert "Code temporaire" in response.content.decode()
 
@@ -107,4 +110,59 @@ def test_admin_can_reset_account_password(client, admin_user, member_user):
     assert response.status_code == 200
     member_user.refresh_from_db()
     assert member_user.password_state == member_user.PasswordState.RESET_REQUIRED
+    assert member_user.check_password(TEMPORARY_ACCESS_CODE)
     assert "Nouveau code temporaire" in response.content.decode()
+
+
+@pytest.mark.django_db
+def test_admin_can_import_accounts_from_tsv(client, admin_user):
+    client.force_login(admin_user)
+    beginner_series = SessionSeries.objects.create(
+        label="Adultes débutants mardi",
+        weekday=1,
+        start_time="19:00",
+        end_time="21:00",
+        default_capacity=20,
+        session_type=SessionSeries.SessionType.COURSE,
+        created_by=admin_user,
+    )
+    practice_series = SessionSeries.objects.create(
+        label="Adultes pratiquants vendredi",
+        weekday=4,
+        start_time="19:00",
+        end_time="21:00",
+        default_capacity=20,
+        session_type=SessionSeries.SessionType.COURSE,
+        created_by=admin_user,
+    )
+    existing_user = get_user_model().objects.create_user(
+        email="old@example.com",
+        password="anciencode123",
+        full_name="Adrien Breuillier",
+        role="member",
+    )
+
+    response = client.post(
+        reverse("accounts_admin:account-import"),
+        {
+            "roster_data": (
+                "Prénom\tNom\tCréneau\tCommentaire\tPasseport orange\tRéférent salle\n"
+                "Adrien\tBarny\tAdultes débutants mardi\tSécurité orange\toui\t\n"
+                "Adrien\tBreuillier\tAdultes pratiquants vendredi\t\t\toui\n"
+            )
+        },
+        follow=True,
+    )
+
+    assert response.status_code == 200
+    created_user = get_user_model().objects.get(full_name="Adrien Barny")
+    existing_user.refresh_from_db()
+
+    assert created_user.password_state == created_user.PasswordState.TEMPORARY
+    assert created_user.check_password(TEMPORARY_ACCESS_CODE)
+    assert created_user.has_orange_passport is True
+    assert CourseEnrollment.objects.active().filter(user=created_user, series=beginner_series).exists()
+
+    assert existing_user.is_responsable_accredited is True
+    assert CourseEnrollment.objects.active().filter(user=existing_user, series=practice_series).exists()
+    assert "Import terminé" in response.content.decode()

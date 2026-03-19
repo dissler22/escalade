@@ -88,7 +88,7 @@
               {% with user=row.user %}
               <tr data-expandable-row>
                 <td data-label="Nom">{{ user.full_name }}</td>
-                <td data-label="Email">{{ user.email }}</td>
+                <td data-label="Email">{{ user.email|default:"à renseigner" }}</td>
                 <td data-label="Parcours">
                   <span class="badge {% if user.role == 'admin' %}status-warning{% else %}status-neutral{% endif %}">
                     {{ user.role }}
