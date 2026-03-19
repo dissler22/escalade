@@ -4,17 +4,6 @@
 
 {% block content %}
   <section class="stack-lg">
-    <div class="card page-intro">
-      <p class="page-kicker">Administration</p>
-      <h1 class="page-title">Pilotage des séances</h1>
-      <p class="page-lead">
-        Gère les pratiques libres, les cours, les profs par défaut et la couverture référent des seules pratiques libres.
-      </p>
-      <div class="meta-list">
-        <span class="meta-pill">Envoi automatique: {{ notification_sender.sender_email|default:"non configuré" }}</span>
-      </div>
-    </div>
-
     <div class="card">
       <div class="actions">
         <a class="button" href="{% url 'sessions_admin:series-create' %}">Nouvelle série</a>
@@ -31,13 +20,13 @@
         <p class="section-note">{{ series_items|length }} série(s) configurée(s)</p>
       </div>
       <div class="table-wrap">
-        <table class="table table-stack">
+        <table class="table table-stack table-stack--expandable">
           <thead>
             <tr><th>Label</th><th>Type</th><th>Jour</th><th>Prof par défaut</th><th>Capacité</th><th>Actions</th></tr>
           </thead>
           <tbody>
             {% for item in series_items %}
-              <tr>
+              <tr data-expandable-row>
                 <td data-label="Label">{{ item.label }}</td>
                 <td data-label="Type"><span class="badge {% if item.session_type == 'course' %}status-info{% else %}status-success{% endif %}">{{ item.get_session_type_display }}</span></td>
                 <td data-label="Jour">{{ item.get_weekday_display }}</td>
@@ -70,15 +59,15 @@
         <p class="section-note">Accès rapide aux éditions, inscrits et traces.</p>
       </div>
       <div class="table-wrap">
-        <table class="table table-stack">
+        <table class="table table-stack table-stack--expandable">
           <thead>
-            <tr><th>Date</th><th>Label</th><th>Type</th><th>Prof</th><th>Couverture</th><th>Actions</th></tr>
+            <tr><th>Label</th><th>Date</th><th>Type</th><th>Prof</th><th>Couverture</th><th>Actions</th></tr>
           </thead>
           <tbody>
             {% for occurrence in occurrences %}
-              <tr>
-                <td data-label="Date">{{ occurrence.session_date }}</td>
+              <tr data-expandable-row>
                 <td data-label="Label">{{ occurrence.label }}</td>
+                <td data-label="Date">{{ occurrence.session_date }}</td>
                 <td data-label="Type"><span class="badge {% if occurrence.session_type == 'course' %}status-info{% else %}status-success{% endif %}">{{ occurrence.get_session_type_display }}</span></td>
                 <td data-label="Prof">{{ occurrence.display_teacher.full_name|default:"-" }}</td>
                 <td data-label="Couverture">
@@ -110,4 +99,19 @@
       </div>
     </section>
   </section>
+
+  <script>
+    (() => {
+      document.querySelectorAll("[data-expandable-row]").forEach(row => {
+        row.addEventListener("click", (e) => {
+          // Si le clic est sur un bouton ou un lien, on ne fait rien
+          if (e.target.closest("button, a")) {
+            return;
+          }
+          
+          row.classList.toggle("is-expanded");
+        });
+      });
+    })();
+  </script>
 {% endblock %}

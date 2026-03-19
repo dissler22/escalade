@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{% block title %}USMV Escalade{% endblock %}</title>
     {% load static %}
-    <link rel="stylesheet" href="{% static 'css/app.css' %}?v=20260312-mobile-header-toggle" />
+    <link rel="stylesheet" href="{% static 'css/app.css' %}?v=20260319-password-gate" />
   </head>
   <body class="app-shell{% if request.user.is_authenticated %} is-authenticated role-{{ request.user.role }}{% else %} is-guest{% endif %}">
     <header class="site-header" data-mobile-header>
@@ -57,9 +57,8 @@
           <nav class="nav" aria-label="Navigation principale">
             <a class="nav-link{% if request.resolver_match.namespace == 'sessions' %} is-current{% endif %}" href="{% url 'sessions:session-list' %}">Séances</a>
             <a class="nav-link{% if request.resolver_match.namespace == 'bookings' %} is-current{% endif %}" href="{% url 'bookings:my-reservations' %}">Mes réservations</a>
-            <a class="nav-link{% if request.resolver_match.namespace == 'accounts' and request.resolver_match.url_name == 'password-change' %} is-current{% endif %}" href="{% url 'accounts:password-change' %}">Mon code</a>
             {% if request.user.role == "admin" %}
-              <a class="nav-link{% if request.resolver_match.namespace == 'sessions_admin' or request.resolver_match.namespace == 'bookings_admin' or request.resolver_match.namespace == 'audit' %} is-current{% endif %}" href="{% url 'sessions_admin:series-list' %}">Administration</a>
+              <a class="nav-link{% if request.resolver_match.namespace == 'sessions_admin' or request.resolver_match.namespace == 'bookings_admin' or request.resolver_match.namespace == 'audit' %} is-current{% endif %}" href="{% url 'sessions_admin:series-list' %}">Pilotage des séances</a>
               <a class="nav-link{% if request.resolver_match.namespace == 'accounts_admin' and request.resolver_match.url_name == 'account-list' %} is-current{% endif %}" href="{% url 'accounts_admin:account-list' %}">Comptes</a>
               <a class="nav-link{% if request.resolver_match.namespace == 'accounts_admin' and request.resolver_match.url_name == 'email-automation' %} is-current{% endif %}" href="{% url 'accounts_admin:email-automation' %}">Automatisation mails</a>
             {% endif %}

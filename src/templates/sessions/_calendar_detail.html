@@ -91,6 +91,7 @@
                 <button type="submit" class="responsable-pill is-mine">
                   <strong>{{ item.time_label }}</strong>
                   <small>{{ item.coverage_label }}</small>
+                  <small class="responsable-pill__action">Cliquer pour abandonner ce créneau</small>
                 </button>
               </form>
             {% elif item.can_take %}
@@ -101,6 +102,7 @@
                 <button type="submit" class="responsable-pill is-open">
                   <strong>{{ item.time_label }}</strong>
                   <small>{{ item.coverage_label }}</small>
+                  <small class="responsable-pill__action">Cliquer pour prendre ce créneau</small>
                 </button>
               </form>
             {% elif item.current_responsable_name %}
@@ -125,4 +127,89 @@
       <p>Les cours affichent le prof et une inscription manuelle, sans logique référent.</p>
     </section>
   {% endif %}
+
+  <section class="card surface-card attendee-card" data-attendance-scope="{{ selected_detail.occurrence_id }}">
+    <div class="section-heading">
+      <div>
+        <p class="section-kicker">Participants</p>
+        <h3>Inscrits</h3>
+      </div>
+      <p class="section-note">{{ selected_detail.attendee_rows|length }} inscrit(s)</p>
+    </div>
+
+    {% if selected_detail.attendee_rows %}
+      <ul class="attendee-list">
+        {% for row in selected_detail.attendee_rows %}
+          <li class="attendee-row" data-attendee-user-id="{{ row.user_id }}">
+            <span class="attendee-name">{{ row.full_name }}</span>
+            {% if request.user.can_cover_slots %}
+              <span class="attendee-actions" aria-label="Appel">
+                <button type="button" class="button ghost attendee-toggle" data-attendance="present">Présent</button>
+                <button type="button" class="button ghost attendee-toggle" data-attendance="absent">Absent</button>
+              </span>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+      {% if request.user.can_cover_slots %}
+        <p class="section-note attendee-hint">Astuce: ces marqueurs restent locaux à votre appareil (aide à l'appel).</p>
+      {% endif %}
+    {% else %}
+      <p class="detail-copy">Aucun inscrit pour le moment.</p>
+    {% endif %}
+  </section>
+
+  <script>
+    (function () {
+      const scopeEl = document.querySelector("[data-attendance-scope]");
+      if (!scopeEl) return;
+      const scope = scopeEl.getAttribute("data-attendance-scope");
+      const key = `attendance:v1:${scope}`;
+
+      function load() {
+        try {
+          return JSON.parse(localStorage.getItem(key) || "{}") || {};
+        } catch (_) {
+          return {};
+        }
+      }
+
+      function save(state) {
+        try {
+          localStorage.setItem(key, JSON.stringify(state));
+        } catch (_) {}
+      }
+
+      function applyRow(rowEl, value) {
+        rowEl.dataset.attendance = value || "";
+        rowEl.querySelectorAll("[data-attendance]").forEach((btn) => {
+          const isActive = btn.getAttribute("data-attendance") === value;
+          btn.classList.toggle("is-active", isActive);
+        });
+      }
+
+      let state = load();
+      scopeEl.querySelectorAll(".attendee-row").forEach((rowEl) => {
+        const userId = rowEl.getAttribute("data-attendee-user-id");
+        applyRow(rowEl, state[userId] || "");
+      });
+
+      scopeEl.addEventListener("click", (e) => {
+        const btn = e.target.closest(".attendee-toggle");
+        if (!btn) return;
+        const rowEl = btn.closest(".attendee-row");
+        if (!rowEl) return;
+        const userId = rowEl.getAttribute("data-attendee-user-id");
+        const value = btn.getAttribute("data-attendance");
+        const current = state[userId] || "";
+        const next = current === value ? "" : value;
+        state = { ...state, [userId]: next };
+        if (!next) {
+          delete state[userId];
+        }
+        save(state);
+        applyRow(rowEl, next);
+      });
+    })();
+  </script>
 </section>

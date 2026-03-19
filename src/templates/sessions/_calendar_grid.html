@@ -1,55 +1,59 @@
+{% load l10n %}
 <div class="calendar-grid-shell">
-  <div class="calendar-grid" role="region" aria-label="Vue hebdomadaire des séances">
-    {% for day in week.days %}
-      <section class="calendar-day{% if day.is_today %} is-today{% endif %}">
-        <header class="calendar-day__header">
-          <div class="calendar-day__date-pack">
-            <strong class="calendar-day__date">{{ day.date|date:"j" }}</strong>
-            <div class="calendar-day__labels">
-              <span class="calendar-day__weekday">{{ day.date|date:"D" }}</span>
-              <span class="calendar-day__full">{{ day.label_full }}</span>
+  <section class="calendar-shared" role="region" aria-label="Vue hebdomadaire des séances">
+    <header class="calendar-shared__header">
+      <div class="calendar-shared__gutter" aria-hidden="true"></div>
+      <div class="calendar-shared__dayheads" role="row">
+        {% for day in week.days %}
+          <div class="calendar-shared__dayhead{% if day.is_today %} is-today{% endif %}" role="columnheader">
+            <div class="calendar-shared__dayhead-pack">
+              <strong class="calendar-shared__date">{{ day.date|date:"j" }}</strong>
+              <div class="calendar-shared__labels">
+                <span class="calendar-shared__weekday">{{ day.date|date:"D" }}</span>
+                <span class="calendar-shared__full">{{ day.label_full }}</span>
+              </div>
             </div>
           </div>
-        </header>
+        {% endfor %}
+      </div>
+    </header>
 
-        {% if day.occurrence_blocks %}
-          <div class="calendar-day__list">
-            {% for block in day.occurrence_blocks %}
-              <a
-                class="calendar-block {{ block.status_class }} session-type-{{ block.session_type }}{% if block.is_selected %} is-selected{% endif %}"
-                href="{% url 'sessions:session-list' %}?week_start={{ week.week_start_iso }}&selected_occurrence={{ block.occurrence_id }}#session-detail"
-              >
-                <div class="calendar-block__topline">
-                  <span class="badge {{ block.session_type_class }}">{{ block.session_type_label }}</span>
-                  <span class="calendar-block__time">
-                    {% if block.starts_before_visible_range %}<span aria-hidden="true">‹</span>{% endif %}
-                    {{ block.start_time|time:"H:i" }} - {{ block.end_time|time:"H:i" }}
-                    {% if block.ends_after_visible_range %}<span aria-hidden="true">›</span>{% endif %}
-                  </span>
-                  {% if block.status_label %}
-                    <span class="calendar-block__status">{{ block.status_label }}</span>
-                  {% endif %}
-                </div>
-                <strong class="calendar-block__title">{{ block.display_label_short }}</strong>
-                <div class="calendar-block__bottomline">
-                  <span class="calendar-block__meta">{{ block.remaining_capacity }} place(s)</span>
-                  {% if block.teacher_name %}
-                    <span class="calendar-block__meta">Prof: {{ block.teacher_name }}</span>
-                  {% endif %}
-                  {% if request.user.can_cover_slots and block.total_slots %}
-                    <span class="calendar-block__meta">{{ block.covered_slots }}/{{ block.total_slots }} resp.</span>
-                  {% endif %}
-                  {% if block.overlapping_count %}
-                    <span class="calendar-block__meta">{{ block.overlapping_count|add:"1" }} en parallèle</span>
-                  {% endif %}
-                </div>
-              </a>
-            {% endfor %}
+    <div
+      class="calendar-shared__body calendar-day__list"
+      data-visible-start="{{ week.visible_start_label }}"
+      data-visible-end="{{ week.visible_end_label }}"
+      data-default-focus="17:00"
+      data-window-hours="6"
+    >
+      <div class="calendar-day__timeline calendar-shared__timeline">
+        {% for marker in week.hour_markers %}
+          <div class="calendar-hour-marker" style="top: {{ marker.top_pct|unlocalize }}%">
+            <span class="calendar-hour-marker__label">{{ marker.label }}</span>
           </div>
-        {% else %}
-          <div class="calendar-day__empty">Aucune séance</div>
-        {% endif %}
-      </section>
-    {% endfor %}
-  </div>
+        {% endfor %}
+
+        <div class="calendar-shared__days" role="rowgroup">
+          {% for day in week.days %}
+            <div class="calendar-shared__daycol{% if day.is_today %} is-today{% endif %}" role="gridcell">
+              {% if day.occurrence_blocks %}
+                {% for block in day.occurrence_blocks %}
+                  <a
+                    class="calendar-block {{ block.status_class }} session-type-{{ block.session_type }}{% if block.is_selected %} is-selected{% endif %}"
+                    href="{% url 'sessions:session-list' %}?week_start={{ week.week_start_iso }}&selected_occurrence={{ block.occurrence_id }}#session-detail"
+                    style="top: {{ block.top_pct|unlocalize }}%; height: {{ block.height_pct|unlocalize }}%; left: calc(({{ block.lane|unlocalize }} / {{ block.lane_count|unlocalize }}) * 100%); width: calc((1 / {{ block.lane_count|unlocalize }}) * 100%);"
+                    title="{{ block.display_label_short }} ({{ block.start_time|time:'H:i' }} - {{ block.end_time|time:'H:i' }})"
+                  >
+                    <span class="calendar-block__time-minimal">{{ block.start_time|time:"H:i" }}</span>
+                    <span class="calendar-block__label-minimal">{{ block.display_label_short }}</span>
+                  </a>
+                {% endfor %}
+              {% else %}
+                <div class="calendar-day__empty">Aucune séance</div>
+              {% endif %}
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </section>
 </div>

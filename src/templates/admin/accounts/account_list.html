@@ -2,18 +2,13 @@
 
 {% block content %}
   <section class="stack-lg">
-    <div class="card page-intro">
-      <p class="page-kicker">Administration des accès</p>
-      <h1 class="page-title">Comptes</h1>
-      <p class="page-lead">
-        Créez les comptes, distribuez un code temporaire, gérez les resets et ajustez les droits sans quitter la liste.
-      </p>
-      <div class="meta-list">
-        <span class="meta-pill">Adresse d'envoi: {{ notification_sender.sender_email|default:"non configurée" }}</span>
+    <div class="card">
+      <div class="actions">
+        <button type="button" class="success" data-toggle-account-form>+ Nouveau compte</button>
       </div>
     </div>
 
-    <section class="card form-card">
+    <section class="card form-card" id="account-creation-form" style="display: none;">
       <div class="section-heading">
         <div>
           <p class="section-kicker">Nouveau compte</p>
@@ -84,14 +79,14 @@
         <p class="section-note">{{ users|length }} compte(s) visibles</p>
       </div>
       <div class="table-wrap">
-        <table class="table table-stack">
+        <table class="table table-stack table-stack--expandable">
           <thead>
             <tr><th>Nom</th><th>Email</th><th>Parcours</th><th>Code</th><th>Accès libre</th><th>Cours rattachés</th><th>Reprise</th><th>Mise à jour</th></tr>
           </thead>
           <tbody>
             {% for row in account_rows %}
               {% with user=row.user %}
-              <tr>
+              <tr data-expandable-row>
                 <td data-label="Nom">{{ user.full_name }}</td>
                 <td data-label="Email">{{ user.email }}</td>
                 <td data-label="Parcours">
@@ -199,4 +194,32 @@
       </div>
     </section>
   </section>
+
+  <script>
+    (() => {
+      const toggleBtn = document.querySelector("[data-toggle-account-form]");
+      const formSection = document.getElementById("account-creation-form");
+      
+      if (toggleBtn && formSection) {
+        toggleBtn.addEventListener("click", () => {
+          const isHidden = formSection.style.display === "none";
+          formSection.style.display = isHidden ? "block" : "none";
+          toggleBtn.textContent = isHidden ? "Annuler la création" : "+ Nouveau compte";
+          toggleBtn.classList.toggle("secondary", isHidden);
+          toggleBtn.classList.toggle("success", !isHidden);
+        });
+      }
+
+      document.querySelectorAll("[data-expandable-row]").forEach(row => {
+        row.addEventListener("click", (e) => {
+          // Si le clic est sur un bouton, un lien, un select ou un input, on ne fait rien
+          if (e.target.closest("button, a, select, input, label")) {
+            return;
+          }
+          
+          row.classList.toggle("is-expanded");
+        });
+      });
+    })();
+  </script>
 {% endblock %}

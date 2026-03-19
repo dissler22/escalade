@@ -4,25 +4,34 @@
 
 {% block content %}
   <section class="stack-lg">
-    <div class="card page-intro">
-      <p class="page-kicker">Parcours adhérent</p>
-      <h1 class="page-title">Calendrier mixte</h1>
-      <p class="page-lead">Séances ouvertes, pratiques libres et cours sur une seule semaine, avec des actions adaptées au type de séance.</p>
-      <div class="meta-list">
-        <span class="meta-pill">{{ week.week_start|date:"j M" }} - {{ week.week_end|date:"j M" }}</span>
-        <span class="meta-pill">Plusieurs séances possibles au même moment</span>
-      </div>
-    </div>
-
     <section class="card calendar-shell">
       <div class="calendar-toolbar">
         <div>
-          <p class="section-kicker">Planning hebdomadaire</p>
-          <h2 class="section-title">Semaine du {{ week.week_start|date:"j F" }}</h2>
+          <h1 class="section-title">Semaine du {{ week.week_start|date:"j F" }}</h1>
+        </div>
+        <div class="calendar-legend">
+          <span class="legend-item"><span class="legend-dot status-free-practice"></span> Pratique libre</span>
+          <span class="legend-item"><span class="legend-dot status-course"></span> Cours</span>
+          <span class="legend-item"><span class="legend-dot status-full"></span> Complet/Annulé</span>
         </div>
         <div class="actions">
-          <a class="button secondary" href="{% url 'sessions:session-list' %}?week_start={{ week.previous_week_start_iso }}">Semaine précédente</a>
-          <a class="button secondary" href="{% url 'sessions:session-list' %}?week_start={{ week.next_week_start_iso }}">Semaine suivante</a>
+          <a
+            class="button secondary button-icon"
+            href="{% url 'sessions:session-list' %}?week_start={{ week.previous_week_start_iso }}"
+            aria-label="Semaine précédente"
+            title="Semaine précédente"
+          >
+            <span aria-hidden="true">‹</span>
+          </a>
+          <a class="button secondary button-compact" href="{% url 'sessions:session-list' %}">Cette semaine</a>
+          <a
+            class="button secondary button-icon"
+            href="{% url 'sessions:session-list' %}?week_start={{ week.next_week_start_iso }}"
+            aria-label="Semaine suivante"
+            title="Semaine suivante"
+          >
+            <span aria-hidden="true">›</span>
+          </a>
         </div>
       </div>
 
@@ -41,4 +50,178 @@
       {% include "sessions/_calendar_detail.html" %}
     {% endif %}
   </section>
+
+  <script>
+    (function () {
+      function parseHm(value) {
+        if (!value) return null;
+        const match = String(value).trim().match(/^(\d{1,2}):(\d{2})$/);
+        if (!match) return null;
+        const h = Number(match[1]);
+        const m = Number(match[2]);
+        if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
+        return h * 60 + m;
+      }
+
+      function clamp(n, min, max) {
+        return Math.min(max, Math.max(min, n));
+      }
+
+      function enableDragScroll(list) {
+        const xScroller = list.closest(".calendar-grid-shell") || list;
+        let dragging = false;
+        let startY = 0;
+        let startX = 0;
+        let startScrollTop = 0;
+        let startScrollLeft = 0;
+        let moved = false;
+        let activePointerType = null;
+        let originalTouchAction = "";
+        let lastDragMovedAt = 0;
+        const DRAG_THRESHOLD_MOUSE = 10;
+        const DRAG_THRESHOLD_TOUCH = 6;
+
+        function onPointerDown(e) {
+          // Si on clique directement sur une séance (lien), on laisse le clic fonctionner.
+          if (e.target && e.target.closest && e.target.closest("a.calendar-block")) {
+            return;
+          }
+
+          // Souris: click gauche uniquement
+          if (e.pointerType === "mouse" && e.button !== 0) return;
+          dragging = true;
+          moved = false;
+          activePointerType = e.pointerType || null;
+          startY = e.clientY;
+          startX = e.clientX;
+          startScrollTop = list.scrollTop;
+          startScrollLeft = xScroller.scrollLeft;
+          list.classList.add("is-dragging");
+
+          // Pour le tactile, on évite la capture immédiate (ça peut bloquer le scroll).
+          // On passe en "drag" contrôlé uniquement après un petit seuil dans onPointerMove.
+          if (e.pointerType === "mouse") {
+            list.setPointerCapture(e.pointerId);
+          } else {
+            originalTouchAction = list.style.touchAction || "";
+          }
+        }
+
+        function onPointerMove(e) {
+          if (!dragging) return;
+          const dy = e.clientY - startY;
+          const dx = e.clientX - startX;
+          const threshold = activePointerType === "mouse" ? DRAG_THRESHOLD_MOUSE : DRAG_THRESHOLD_TOUCH;
+          if (!moved) {
+            if (Math.max(Math.abs(dy), Math.abs(dx)) < threshold) {
+              return;
+            }
+            moved = true;
+          }
+
+          // Dès qu'on a vraiment bougé au tactile, on prend la main sur le geste.
+          if (activePointerType !== "mouse" && moved) {
+            // Désactive temporairement le pan natif pour éviter la concurrence.
+            list.style.touchAction = "none";
+            e.preventDefault();
+          }
+
+          list.scrollTop = startScrollTop - dy;
+          xScroller.scrollLeft = startScrollLeft - dx;
+        }
+
+        function endDrag(e) {
+          if (!dragging) return;
+          dragging = false;
+          list.classList.remove("is-dragging");
+          try {
+            if (activePointerType === "mouse") {
+              list.releasePointerCapture(e.pointerId);
+            }
+          } catch (_) {}
+
+          if (activePointerType !== "mouse") {
+            list.style.touchAction = originalTouchAction;
+          }
+
+          if (moved) {
+            lastDragMovedAt = Date.now();
+          }
+
+          activePointerType = null;
+        }
+
+        // Si on a vraiment “glissé”, on bloque le click sur les blocs (sinon ça ouvre le détail).
+        list.addEventListener(
+          "click",
+          (e) => {
+            // On ne bloque que juste après un drag effectif (évite de casser les clics desktop).
+            if (!lastDragMovedAt) return;
+            if (Date.now() - lastDragMovedAt > 280) return;
+            e.preventDefault();
+            e.stopPropagation();
+          },
+          true
+        );
+
+        // Important: pointermove doit pouvoir preventDefault sur tactile.
+        list.addEventListener("pointerdown", onPointerDown);
+        list.addEventListener("pointermove", onPointerMove, { passive: false });
+        list.addEventListener("pointerup", endDrag);
+        list.addEventListener("pointercancel", endDrag);
+        list.addEventListener("pointerleave", endDrag);
+      }
+
+      function focusCalendars() {
+        const lists = document.querySelectorAll(".calendar-day__list[data-default-focus]");
+        lists.forEach((list) => {
+          const timeline = list.querySelector(".calendar-day__timeline");
+          if (!timeline) return;
+
+          const startMin = parseHm(list.dataset.visibleStart);
+          const endMin = parseHm(list.dataset.visibleEnd);
+          const focusMin = parseHm(list.dataset.defaultFocus);
+          if (startMin == null || endMin == null || focusMin == null) return;
+
+          const total = Math.max(1, endMin - startMin);
+          const focusPct = clamp((focusMin - startMin) / total, 0, 1);
+
+          // Fenêtre glissante: hauteur visible = N heures (par défaut 6h).
+          const cssHourStep = Number.parseFloat(
+            getComputedStyle(list).getPropertyValue("--calendar-hour-step")
+          );
+          const hourStepPx = Number.isFinite(cssHourStep) && cssHourStep > 0 ? cssHourStep : 52;
+          const windowHours = Number(list.dataset.windowHours || "6") || 6;
+
+          const totalHours = total / 60;
+          const timelineHeight = Math.max(1, Math.round(totalHours * hourStepPx));
+          timeline.style.height = `${timelineHeight}px`;
+
+          const viewportHeight = Math.round(windowHours * hourStepPx);
+          list.style.height = `${viewportHeight}px`;
+
+          // Focus: on place l'heure de focus au début de la fenêtre (donc 17→23 visible).
+          const focusPx = focusPct * timelineHeight;
+          const maxScroll = Math.max(0, timelineHeight - viewportHeight);
+          list.scrollTop = Math.round(clamp(focusPx, 0, maxScroll));
+
+          if (!list.dataset.dragScrollEnabled) {
+            enableDragScroll(list);
+            list.dataset.dragScrollEnabled = "1";
+          }
+        });
+      }
+
+      function scheduleFocus() {
+        // Deux frames pour laisser le layout (fonts, widths) se stabiliser.
+        requestAnimationFrame(() => requestAnimationFrame(focusCalendars));
+      }
+
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", scheduleFocus);
+      } else {
+        scheduleFocus();
+      }
+    })();
+  </script>
 {% endblock %}

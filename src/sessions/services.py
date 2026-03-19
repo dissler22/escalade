@@ -33,6 +33,22 @@ VISIBLE_RANGE_MINUTES = (
 )
 
 
+def _build_hour_markers() -> list[dict[str, float | str]]:
+    """Markers horaires (toutes les heures) pour l'échelle verticale du calendrier."""
+    visible_start_m = VISIBLE_DAY_START.hour * 60 + VISIBLE_DAY_START.minute
+    total_range = VISIBLE_RANGE_MINUTES or 1
+
+    markers: list[dict[str, float | str]] = []
+    start_hour = VISIBLE_DAY_START.hour
+    end_hour = VISIBLE_DAY_END.hour
+    for hour in range(start_hour, end_hour + 1):
+        minute_of_day = hour * 60
+        top_pct = (minute_of_day - visible_start_m) / total_range * 100
+        if 0 <= top_pct <= 100:
+            markers.append({"top_pct": float(top_pct), "label": f"{hour:02d}:00"})
+    return markers
+
+
 @dataclass(slots=True)
 class CalendarOccurrenceBlock:
     occurrence: SessionOccurrence
@@ -55,6 +71,10 @@ class CalendarOccurrenceBlock:
     covered_slots: int
     total_slots: int
     overlapping_count: int
+    lane: int = 0
+    lane_count: int = 1
+    top_pct: float = 0.0
+    height_pct: float = 0.0
 
 
 @dataclass(slots=True)
@@ -116,6 +136,7 @@ class InlineOccurrenceDetail:
     notes: str
     teacher_name: str
     my_reservation: Reservation | None
+    attendee_rows: list[dict[str, int | str]]
     slot_cards: list[InlineSlotCard]
     can_reserve: bool
     can_cancel: bool
@@ -410,17 +431,71 @@ def _shorten_occurrence_label(label: str) -> str:
 
 def _build_day_blocks(day_occurrences: list[SessionOccurrence], *, selected_occurrence_id: int | None) -> list[CalendarOccurrenceBlock]:
     blocks: list[CalendarOccurrenceBlock] = []
-    for occurrence in sorted(day_occurrences, key=lambda item: (item.start_time, item.end_time, item.id)):
+    
+    # Pre-sort for lane assignment
+    sorted_items = sorted(day_occurrences, key=lambda item: (item.start_time, item.end_time, item.id))
+    
+    # 1. Basic lane assignment
+    lanes_ends: list[dt.time] = []
+    temp_blocks: list[dict] = []
+    
+    for occurrence in sorted_items:
+        lane_idx = 0
+        found_lane = False
+        while lane_idx < len(lanes_ends):
+            if lanes_ends[lane_idx] <= occurrence.start_time:
+                lanes_ends[lane_idx] = occurrence.end_time
+                found_lane = True
+                break
+            lane_idx += 1
+        
+        if not found_lane:
+            lanes_ends.append(occurrence.end_time)
+            lane_idx = len(lanes_ends) - 1
+            
+        temp_blocks.append({
+            "occurrence": occurrence,
+            "lane": lane_idx,
+        })
+
+    # 2. Group overlaps to find max lanes in each cluster
+    # This is simplified: if things overlap in any way, they share a "cluster"
+    # and use the max lane count of that cluster.
+    # For a real calendar it's more complex, but this should fix most "2 at the same time" issues.
+    for i, b1 in enumerate(temp_blocks):
+        cluster_lanes = {b1["lane"]}
+        # Find all blocks that overlap with b1
+        o1 = b1["occurrence"]
+        for b2 in temp_blocks:
+            o2 = b2["occurrence"]
+            if o1.id != o2.id and o1.start_time < o2.end_time and o1.end_time > o2.start_time:
+                cluster_lanes.add(b2["lane"])
+        b1["lane_count"] = max(cluster_lanes) + 1 if cluster_lanes else 1
+
+    # 3. Final block creation
+    visible_start_m = VISIBLE_DAY_START.hour * 60 + VISIBLE_DAY_START.minute
+    total_range = VISIBLE_RANGE_MINUTES or 1
+
+    for b in temp_blocks:
+        occurrence = b["occurrence"]
         status_label, status_class = _occurrence_status_summary(occurrence)
         coverage_summary = _coverage_summary(occurrence)
         remaining_capacity = _occurrence_remaining_capacity(occurrence)
-        overlapping_count = sum(
-            1
-            for other in day_occurrences
-            if other.id != occurrence.id
-            and other.start_time < occurrence.end_time
-            and other.end_time > occurrence.start_time
-        )
+        
+        # Re-calc local overlap for display
+        local_overlaps = sum(1 for other in temp_blocks if other["occurrence"].id != occurrence.id and other["occurrence"].start_time < occurrence.end_time and other["occurrence"].end_time > occurrence.start_time)
+
+        # Vertical positioning
+        start_m = occurrence.start_time.hour * 60 + occurrence.start_time.minute
+        end_m = occurrence.end_time.hour * 60 + occurrence.end_time.minute
+        
+        # Clamp to visible range
+        clamped_start = max(start_m, visible_start_m)
+        clamped_end = min(end_m, visible_start_m + total_range)
+        
+        top_pct = max(0, (clamped_start - visible_start_m) / total_range * 100)
+        height_pct = max(5, (clamped_end - clamped_start) / total_range * 100) # Min height 5%
+        
         blocks.append(
             CalendarOccurrenceBlock(
                 occurrence=occurrence,
@@ -442,7 +517,11 @@ def _build_day_blocks(day_occurrences: list[SessionOccurrence], *, selected_occu
                 remaining_capacity=remaining_capacity,
                 covered_slots=coverage_summary["covered"] if occurrence.is_free_practice else 0,
                 total_slots=coverage_summary["total"] if occurrence.is_free_practice else 0,
-                overlapping_count=overlapping_count,
+                overlapping_count=local_overlaps,
+                lane=b["lane"],
+                lane_count=max(b["lane_count"], b["lane"] + 1),
+                top_pct=top_pct,
+                height_pct=height_pct,
             )
         )
     return blocks
@@ -451,6 +530,11 @@ def _build_day_blocks(day_occurrences: list[SessionOccurrence], *, selected_occu
 def _build_inline_detail(*, occurrence: SessionOccurrence, user, week_start: dt.date) -> InlineOccurrenceDetail:
     policy = get_occurrence_access_policy(user=user, occurrence=occurrence)
     my_reservation = next((reservation for reservation in occurrence.reservations.all() if reservation.user_id == user.id), None)
+    attendee_rows = [
+        {"user_id": reservation.user_id, "full_name": reservation.user.full_name}
+        for reservation in occurrence.reservations.all()
+    ]
+    attendee_rows.sort(key=lambda row: str(row["full_name"]).casefold())
     slot_cards: list[InlineSlotCard] = []
     for slot in occurrence.slots.all() if occurrence.is_free_practice else []:
         active_assignment = _active_slot_assignment(slot)
@@ -512,6 +596,7 @@ def _build_inline_detail(*, occurrence: SessionOccurrence, user, week_start: dt.
         notes=occurrence.notes.strip(),
         teacher_name=occurrence.display_teacher.full_name if occurrence.display_teacher else "",
         my_reservation=my_reservation,
+        attendee_rows=attendee_rows,
         slot_cards=slot_cards,
         can_reserve=policy.can_reserve,
         can_cancel=my_reservation is not None,
@@ -575,7 +660,7 @@ def build_member_calendar_page(*, user, week_start_value=None, selected_occurren
         next_week_start_iso=(week_start + dt.timedelta(days=7)).isoformat(),
         selected_occurrence_id=selected_occurrence_id,
         days=days,
-        hour_markers=[],
+        hour_markers=_build_hour_markers(),
     )
     selected_detail = (
         _build_inline_detail(occurrence=selected_occurrence, user=user, week_start=week_start)

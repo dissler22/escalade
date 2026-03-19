@@ -4,14 +4,6 @@
 
 {% block content %}
   <section class="stack-lg">
-    <div class="card page-intro">
-      <p class="page-kicker">Suivi adhérent</p>
-      <h1 class="page-title">Mes réservations</h1>
-      <p class="page-lead">
-        Retrouvez vos inscriptions actives, vérifiez les prochaines dates et annulez
-        seulement si votre place doit être libérée.
-      </p>
-    </div>
     {% for item in reservation_cards %}
       {% with reservation=item.reservation %}
       <article class="card session-card">

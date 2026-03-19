@@ -41,13 +41,13 @@
         </div>
       </div>
       <div class="table-wrap">
-        <table class="table table-stack">
+        <table class="table table-stack table-stack--expandable">
           <thead>
             <tr><th>Nom</th><th>Email</th><th>Statut</th><th>Reprise</th><th>Action</th></tr>
           </thead>
           <tbody>
             {% for reservation in reservations %}
-              <tr>
+              <tr data-expandable-row>
                 <td data-label="Nom">{{ reservation.user.full_name }}</td>
                 <td data-label="Email">{{ reservation.user.email }}</td>
                 <td data-label="Statut"><span class="badge status-success">Inscrit</span></td>
@@ -73,4 +73,18 @@
       </div>
     </div>
   </section>
+
+  <script>
+    (() => {
+      document.querySelectorAll("[data-expandable-row]").forEach(row => {
+        row.addEventListener("click", (e) => {
+          if (e.target.closest("button, a, select, input, label")) {
+            return;
+          }
+          
+          row.classList.toggle("is-expanded");
+        });
+      });
+    })();
+  </script>
 {% endblock %}
