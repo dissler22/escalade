@@ -78,7 +78,12 @@ def test_temporary_password_forces_password_change_flow(client):
 
     assert response.status_code == 200
     assert response.request["PATH_INFO"] == reverse("accounts:password-change")
-    assert "Code temporaire detecte" in response.content.decode()
+    html = response.content.decode()
+    assert "Code temporaire detecte" in html
+    assert "Définir votre mot de passe" in html
+    assert "Séances" not in html
+    assert "Mes réservations" not in html
+    assert "Se déconnecter" not in html
 
     response = client.post(
         reverse("accounts:password-change"),
@@ -94,3 +99,14 @@ def test_temporary_password_forces_password_change_flow(client):
     user.refresh_from_db()
     assert user.password_state == user.PasswordState.ACTIVE
     assert response.request["PATH_INFO"] == reverse("sessions:session-list")
+    assert "Mon code" not in response.content.decode()
+
+
+@pytest.mark.django_db
+def test_active_user_cannot_access_temporary_password_page(client, member_user):
+    client.force_login(member_user)
+
+    response = client.get(reverse("accounts:password-change"))
+
+    assert response.status_code == 302
+    assert response.url == reverse("sessions:session-list")

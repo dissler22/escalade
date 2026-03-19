@@ -1,6 +1,7 @@
 from django.contrib import messages
 from django.contrib.auth import login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.cache import never_cache
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 
@@ -39,13 +40,17 @@ def logout_view(request: HttpRequest) -> HttpResponse:
 
 
 @login_required
+@never_cache
 def password_change_view(request: HttpRequest) -> HttpResponse:
+    if request.user.password_state == request.user.PasswordState.ACTIVE:
+        return redirect("sessions:session-list")
+
     form = RequiredPasswordChangeForm(user=request.user, data=request.POST or None)
     if request.method == "POST" and form.is_valid():
         user = form.save(commit=False)
         user.mark_password_active()
         user.save(update_fields=["password", "password_state", "updated_at"])
         update_session_auth_hash(request, user)
-        messages.success(request, "Code personnel mis a jour.")
+        messages.success(request, "Mot de passe mis a jour.")
         return redirect("sessions:session-list")
     return render(request, "accounts/password_change.html", {"form": form})
