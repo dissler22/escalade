@@ -10,8 +10,8 @@ class ActiveReservationQuerySet(models.QuerySet):
 
 class Reservation(models.Model):
     class Status(models.TextChoices):
-        ACTIVE = "active", "Active"
-        CANCELLED = "cancelled", "Cancelled"
+        ACTIVE = "active", "Confirmée"
+        CANCELLED = "cancelled", "Annulée"
 
     occurrence = models.ForeignKey(
         "club_sessions.SessionOccurrence",

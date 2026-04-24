@@ -115,6 +115,7 @@ def teacher_user(db):
         password="teacherpass123",
         full_name="Teacher User",
         role="member",
+        can_teach_courses=True,
     )
 
 

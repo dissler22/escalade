@@ -14,11 +14,149 @@
       <form method="post">
         {% csrf_token %}
         <div class="form-body">{{ form.as_p }}</div>
-        <div class="actions">
+        
+        <div class="section-heading" style="margin-top: 2rem; border-top: 1px solid var(--border); padding-top: 2rem;">
+          <div>
+            <p class="section-kicker">Découpage</p>
+            <h2>Créneaux par défaut</h2>
+            <p class="help-text">Si vous ne définissez aucun créneau, la série sera automatiquement découpée en tranches de 1h30.</p>
+          </div>
+        </div>
+        
+        <div class="form-body">
+          {{ slot_formset.management_form }}
+          <div id="slot-formset-container" class="stack-sm">
+            {% for slot_form in slot_formset %}
+              <div class="slot-form-row card surface-card" style="display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap; padding: 1rem;">
+                {% for hidden in slot_form.hidden_fields %}
+                  {{ hidden }}
+                {% endfor %}
+                <div style="flex: 1; min-width: 80px;">
+                  <label style="font-size: 0.85rem; font-weight: 600;">Ordre</label>
+                  {{ slot_form.sequence_index }}
+                </div>
+                <div style="flex: 2; min-width: 120px;">
+                  <label style="font-size: 0.85rem; font-weight: 600;">Début</label>
+                  {{ slot_form.start_time }}
+                </div>
+                <div style="flex: 2; min-width: 120px;">
+                  <label style="font-size: 0.85rem; font-weight: 600;">Fin</label>
+                  {{ slot_form.end_time }}
+                </div>
+                <div style="flex: 0 0 auto; padding-bottom: 0.5rem;">
+                  {% if slot_form.instance.pk %}
+                    <label style="font-size: 0.85rem; display: flex; align-items: center; gap: 0.25rem; color: var(--danger);">
+                      {{ slot_form.DELETE }} Supprimer
+                    </label>
+                  {% else %}
+                    <button type="button" class="button ghost danger remove-slot-btn" style="padding: 0.25rem 0.5rem; min-height: 0;">Retirer</button>
+                  {% endif %}
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+          <div style="margin-top: 1rem;">
+            <button type="button" id="add-slot-btn" class="button secondary">+ Ajouter un créneau</button>
+          </div>
+        </div>
+
+        <div class="actions" style="margin-top: 2rem;">
           <button type="submit">Enregistrer</button>
           <a class="button secondary" href="{% url 'sessions_admin:series-list' %}">Retour au pilotage</a>
         </div>
       </form>
+
+      <!-- Template caché pour les nouveaux créneaux -->
+      <template id="empty-slot-form">
+        <div class="slot-form-row card surface-card" style="display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap; padding: 1rem;">
+          {% for hidden in slot_formset.empty_form.hidden_fields %}
+            {{ hidden }}
+          {% endfor %}
+          <div style="flex: 1; min-width: 80px;">
+            <label style="font-size: 0.85rem; font-weight: 600;">Ordre</label>
+            {{ slot_formset.empty_form.sequence_index }}
+          </div>
+          <div style="flex: 2; min-width: 120px;">
+            <label style="font-size: 0.85rem; font-weight: 600;">Début</label>
+            {{ slot_formset.empty_form.start_time }}
+          </div>
+          <div style="flex: 2; min-width: 120px;">
+            <label style="font-size: 0.85rem; font-weight: 600;">Fin</label>
+            {{ slot_formset.empty_form.end_time }}
+          </div>
+          <div style="flex: 0 0 auto; padding-bottom: 0.5rem;">
+            <button type="button" class="button ghost danger remove-slot-btn" style="padding: 0.25rem 0.5rem; min-height: 0;">Retirer</button>
+          </div>
+        </div>
+      </template>
+
+      <script>
+        document.addEventListener('DOMContentLoaded', function() {
+          const container = document.getElementById('slot-formset-container');
+          const addButton = document.getElementById('add-slot-btn');
+          const totalFormsInput = document.querySelector('input[name="slot_templates-TOTAL_FORMS"]');
+          const template = document.getElementById('empty-slot-form');
+
+          if (addButton && template && container && totalFormsInput) {
+            addButton.addEventListener('click', function() {
+              const formCount = parseInt(totalFormsInput.value, 10);
+              const newFormHtml = template.innerHTML.replace(/__prefix__/g, formCount);
+              
+              const tempDiv = document.createElement('div');
+              tempDiv.innerHTML = newFormHtml;
+              const newRow = tempDiv.firstElementChild;
+              
+              // Auto-fill sequence index
+              const seqInput = newRow.querySelector('.sequence-input');
+              if (seqInput) {
+                // Count visible rows to determine next sequence number
+                const visibleRows = Array.from(container.querySelectorAll('.slot-form-row')).filter(row => {
+                  const deleteCheckbox = row.querySelector('input[type="checkbox"][name$="-DELETE"]');
+                  return !deleteCheckbox || !deleteCheckbox.checked;
+                });
+                seqInput.value = visibleRows.length + 1;
+              }
+              
+              container.appendChild(newRow);
+              totalFormsInput.value = formCount + 1;
+              
+              // Attach remove event to the new button
+              const removeBtn = newRow.querySelector('.remove-slot-btn');
+              if (removeBtn) {
+                removeBtn.addEventListener('click', function() {
+                  newRow.remove();
+                  // Note: we don't decrement TOTAL_FORMS because Django expects sequential indices up to TOTAL_FORMS
+                  // even if some are missing in the middle, but it's safer to just hide or remove if it's a new unsaved form.
+                });
+              }
+            });
+
+            // Handle delete checkboxes for existing forms to hide them visually
+            container.addEventListener('change', function(e) {
+              if (e.target.matches('input[type="checkbox"][name$="-DELETE"]')) {
+                const row = e.target.closest('.slot-form-row');
+                if (e.target.checked) {
+                  row.style.opacity = '0.5';
+                  row.style.background = 'var(--surface-hover)';
+                } else {
+                  row.style.opacity = '1';
+                  row.style.background = '';
+                }
+              }
+            });
+
+            // Handle remove buttons for new/unsaved forms
+            container.addEventListener('click', function(e) {
+              if (e.target.matches('.remove-slot-btn')) {
+                const row = e.target.closest('.slot-form-row');
+                if (row) {
+                  row.remove();
+                }
+              }
+            });
+          }
+        });
+      </script>
       {% if series %}
         <details class="card surface-card">
           <summary>Supprimer cette série</summary>
@@ -33,115 +171,53 @@
       {% endif %}
     </section>
 
-    {% if series and series.session_type == "free_practice" %}
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        const sessionTypeSelect = document.querySelector('select[name="session_type"]');
+        const teacherSelect = document.querySelector('select[name="default_teacher"]');
+        
+        if (sessionTypeSelect && teacherSelect) {
+          const teacherWrapper = teacherSelect.closest('p');
+          
+          const helpText = document.createElement('p');
+          helpText.className = 'help-text free-practice-teacher-help';
+          helpText.textContent = 'Le référent ne se choisit pas ici. Il se gère via les créneaux référents.';
+          helpText.style.color = 'var(--text-muted)';
+          helpText.style.fontSize = '0.875rem';
+          helpText.style.fontStyle = 'italic';
+          
+          teacherWrapper.parentNode.insertBefore(helpText, teacherWrapper.nextSibling);
+          
+          function updateVisibility() {
+            if (sessionTypeSelect.value === 'free_practice') {
+              teacherWrapper.style.display = 'none';
+              helpText.style.display = 'block';
+            } else {
+              teacherWrapper.style.display = 'block';
+              helpText.style.display = 'none';
+            }
+          }
+          
+          sessionTypeSelect.addEventListener('change', updateVisibility);
+          updateVisibility();
+        }
+      });
+    </script>
+
+
+    {% if series %}
       <section class="card table-card">
         <div class="section-heading">
           <div>
-            <p class="section-kicker">Créneaux responsables</p>
-            <h2>Occurrences liées à la série</h2>
+            <p class="section-kicker">Occurrences</p>
+            <h2>Séances générées</h2>
           </div>
+          <a class="button secondary" href="{% url 'sessions_admin:series-list' %}#occurrences-section">Voir le planning immédiat</a>
         </div>
-        <div class="stack">
-          {% for occurrence in series.occurrences.all %}
-            <article class="card slot-card slot-card--admin">
-              <div class="section-heading">
-                <div>
-                  <p class="section-kicker">{{ occurrence.session_date }}</p>
-                  <h2>{{ occurrence.label }}</h2>
-                </div>
-                <a class="button secondary" href="{% url 'sessions_admin:occurrence-edit' occurrence_id=occurrence.id %}">Ouvrir la séance</a>
-              </div>
-
-              <div class="session-meta">
-                <span class="badge {% if occurrence.coverage_summary.uncovered %}status-danger{% else %}status-success{% endif %}">
-                  {{ occurrence.coverage_summary.covered }}/{{ occurrence.coverage_summary.total }} créneaux avec responsable
-                </span>
-              </div>
-
-              {% for slot in occurrence.slots.all %}
-                <article class="card slot-card slot-card--admin">
-                  <div class="session-meta">
-                    <span class="badge status-{{ slot.status }}">{{ slot.get_status_display }}</span>
-                    <span class="badge {% if slot.coverage_status == 'covered' %}status-success{% elif slot.coverage_status == 'cancelled' %}status-danger{% else %}status-warning{% endif %}">
-                      {% if slot.current_responsable %}
-                        {{ slot.current_responsable.full_name }}
-                      {% elif slot.coverage_status == 'cancelled' %}
-                        créneau annulé
-                      {% else %}
-                        sans responsable
-                      {% endif %}
-                    </span>
-                  </div>
-
-                  <form method="post" action="{% url 'sessions_admin:slot-edit' slot_id=slot.id %}" class="inline-form slot-edit-grid">
-                    {% csrf_token %}
-                    <input type="hidden" name="return_to" value="{{ series_return_to }}" />
-                    <label>
-                      Début
-                      <input type="time" name="start_time" value="{{ slot.start_time|time:'H:i' }}" />
-                    </label>
-                    <label>
-                      Fin
-                      <input type="time" name="end_time" value="{{ slot.end_time|time:'H:i' }}" />
-                    </label>
-                    <label>
-                      Capacité
-                      <input type="number" name="capacity" min="1" value="{{ slot.capacity }}" />
-                    </label>
-                    <label>
-                      Statut
-                      <select name="status">
-                        <option value="open" {% if slot.status == "open" %}selected{% endif %}>Open</option>
-                        <option value="cancelled" {% if slot.status == "cancelled" %}selected{% endif %}>Cancelled</option>
-                      </select>
-                    </label>
-                    <button type="submit" class="secondary">Corriger le créneau</button>
-                  </form>
-
-                  <div class="table-actions">
-                    <form method="post" action="{% url 'sessions_admin:slot-assign-responsable' slot_id=slot.id %}" class="inline-form">
-                      {% csrf_token %}
-                      <input type="hidden" name="return_to" value="{{ series_return_to }}" />
-                      <select name="user_id">
-                        {% for user in responsable_candidates %}
-                          {% if user.can_cover_slots %}
-                            <option value="{{ user.id }}">{{ user.full_name }} · {{ user.email }}</option>
-                          {% endif %}
-                        {% endfor %}
-                      </select>
-                      <button type="submit">Affecter un responsable</button>
-                    </form>
-
-                    {% if slot.current_responsable %}
-                      <form method="post" action="{% url 'sessions_admin:slot-release-responsable' slot_id=slot.id %}">
-                        {% csrf_token %}
-                        <input type="hidden" name="return_to" value="{{ series_return_to }}" />
-                        <button type="submit" class="ghost">Retirer le responsable</button>
-                      </form>
-                    {% endif %}
-
-                    <form method="post" action="{% url 'sessions_admin:slot-delete' slot_id=slot.id %}" class="inline-form">
-                      {% csrf_token %}
-                      <input type="hidden" name="return_to" value="{{ series_return_to }}" />
-                      <button type="submit" class="danger">Supprimer ce créneau</button>
-                    </form>
-                  </div>
-                </article>
-              {% empty %}
-                <div class="card empty-state">
-                  <p class="section-kicker">Découpage</p>
-                  <h2>Aucun créneau généré</h2>
-                  <p>Cette occurrence n a actuellement aucun créneau responsable. C est autorisé.</p>
-                </div>
-              {% endfor %}
-            </article>
-          {% empty %}
-            <div class="card empty-state">
-              <p class="section-kicker">Occurrences</p>
-              <h2>Aucune occurrence liée</h2>
-              <p>La série n a pas encore généré d occurrences à éditer.</p>
-            </div>
-          {% endfor %}
+        <div class="card-body">
+          <p class="help-text" style="color: var(--text-muted); font-style: italic;">
+            Les modifications apportées au découpage ci-dessus s'appliqueront aux futures occurrences créées.
+          </p>
         </div>
       </section>
     {% endif %}

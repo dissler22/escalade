@@ -20,19 +20,15 @@
     {% if selected_detail.show_responsibility_section and request.user.can_cover_slots %}
       <span class="badge status-neutral">{{ selected_detail.coverage_summary_label }}</span>
     {% endif %}
-    {% if selected_detail.teacher_name %}
+    {% if selected_detail.session_type == 'course' and selected_detail.teacher_name %}
       <span class="badge status-neutral">Prof: {{ selected_detail.teacher_name }}</span>
     {% endif %}
   </div>
 
   <div class="calendar-detail__summary">
-    <div class="stat-card">
-      <span class="section-kicker">Date</span>
-      <strong>{{ selected_detail.date_label }}</strong>
-    </div>
-    <div class="stat-card">
-      <span class="section-kicker">Horaire</span>
-      <strong>{{ selected_detail.time_label }}</strong>
+    <div class="stat-card calendar-detail__when" aria-label="Date et horaire">
+      <strong class="calendar-detail__when-date">{{ selected_detail.date_label }}</strong>
+      <strong class="calendar-detail__when-time">{{ selected_detail.time_label }}</strong>
     </div>
   </div>
 
@@ -59,7 +55,9 @@
         <button type="submit">S'inscrire</button>
       </form>
     {% else %}
-      <span class="helper-copy">{{ selected_detail.reserve_denial_reason|default:"Inscription indisponible depuis cette séance." }}</span>
+      <span class="reserve-denial" role="note">
+        {{ selected_detail.reserve_denial_reason|default:"Vous ne pouvez pas vous inscrire à cette séance. Essayez une autre séance disponible." }}
+      </span>
     {% endif %}
     {% if selected_detail.can_edit_as_teacher %}
       <a class="button ghost" href="{{ selected_detail.teacher_edit_url }}">Modifier comme prof</a>
@@ -119,12 +117,6 @@
           </div>
         {% endfor %}
       </div>
-    </section>
-  {% else %}
-    <section class="card empty-state">
-      <p class="section-kicker">Cours</p>
-      <h3>Pas de logique référent</h3>
-      <p>Les cours affichent le prof et une inscription manuelle, sans logique référent.</p>
     </section>
   {% endif %}
 

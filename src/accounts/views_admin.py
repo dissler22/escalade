@@ -95,7 +95,7 @@ def _build_account_list_context(*, create_form=None, import_form=None):
                 "user": user,
                 "course_ids": course_memberships[user.pk],
                 "recovery_count": count,
-                "is_teacher": user.teaching_occurrences.exists() or user.default_course_series.exists(),
+                "is_teacher": user.can_teach_courses,
             }
         )
     return {
@@ -141,6 +141,7 @@ def create_account(request: HttpRequest) -> HttpResponse:
             user.grant_responsable_accreditation(actor=request.user)
         if cleaned_data["has_orange_passport"]:
             user.grant_orange_passport(actor=request.user)
+        user.can_teach_courses = cleaned_data["can_teach_courses"]
         user.save()
 
         for series in cleaned_data["course_series_ids"]:
@@ -168,13 +169,14 @@ def create_account(request: HttpRequest) -> HttpResponse:
             "role": user.role,
             "is_responsable_accredited": user.is_responsable_accredited,
             "has_orange_passport": user.has_orange_passport,
+            "can_teach_courses": user.can_teach_courses,
             "course_series_ids": [series.pk for series in cleaned_data["course_series_ids"]],
             "password_state": user.password_state,
         },
     )
     messages.success(
         request,
-        f"Compte cree pour {user.full_name}. Code temporaire: {TEMPORARY_ACCESS_CODE}",
+        f"Compte créé pour {user.full_name}. Code temporaire : {TEMPORARY_ACCESS_CODE}",
     )
     return redirect("accounts_admin:account-list")
 
@@ -220,6 +222,7 @@ def update_account_status(request: HttpRequest, user_id: int) -> HttpResponse:
     if request.method == "POST":
         previous_accreditation = user.is_responsable_accredited
         previous_orange_passport = user.has_orange_passport
+        previous_can_teach_courses = user.can_teach_courses
         selected_course_ids = {
             int(series_id)
             for series_id in request.POST.getlist("course_series_ids")
@@ -248,6 +251,7 @@ def update_account_status(request: HttpRequest, user_id: int) -> HttpResponse:
                 user.grant_orange_passport(actor=request.user)
             elif not wants_orange_passport and user.has_orange_passport:
                 user.revoke_orange_passport()
+            user.can_teach_courses = request.POST.get("can_teach_courses") == "true"
             user.save()
 
             _sync_active_course_enrollments(
@@ -267,6 +271,7 @@ def update_account_status(request: HttpRequest, user_id: int) -> HttpResponse:
                 "role": user.role,
                 "is_responsable_accredited": user.is_responsable_accredited,
                 "has_orange_passport": user.has_orange_passport,
+                "can_teach_courses": user.can_teach_courses,
                 "course_series_ids": sorted(valid_course_ids),
             },
         )
@@ -303,7 +308,15 @@ def update_account_status(request: HttpRequest, user_id: int) -> HttpResponse:
                 target_id=user.pk,
                 metadata={"email": user.email},
             )
-        messages.success(request, "Compte mis a jour.")
+        if previous_can_teach_courses != user.can_teach_courses:
+            record_event(
+                actor=request.user,
+                action_type="teaching_capability_updated",
+                target_type="account",
+                target_id=user.pk,
+                metadata={"email": user.email, "can_teach_courses": user.can_teach_courses},
+            )
+        messages.success(request, "Compte mis à jour.")
     return redirect("accounts_admin:account-list")
 
 
@@ -336,7 +349,7 @@ def email_automation(request: HttpRequest) -> HttpResponse:
     form = EmailAutomationSettingsForm(request.POST or None, instance=automation_settings)
     if request.method == "POST" and form.is_valid():
         form.save()
-        messages.success(request, "Automatisation des mails mise a jour.")
+        messages.success(request, "Automatisation des mails mise à jour.")
         return redirect("accounts_admin:email-automation")
     return render(
         request,

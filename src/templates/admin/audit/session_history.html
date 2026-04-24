@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load audit_tags %}
 
 {% block content %}
   <section class="stack-lg">
@@ -22,7 +23,7 @@
           <article class="timeline-card">
             <div class="timeline-card__meta">
               <span class="badge status-neutral">{{ entry.created_at }}</span>
-              <span class="badge status-warning">{{ entry.action_type }}</span>
+              <span class="badge status-warning">{{ entry.action_type|audit_action_label }}</span>
             </div>
             <div class="timeline-card__details">
               <p><strong>Acteur:</strong> {% if entry.actor_user %}{{ entry.actor_user.full_name }}{% else %}Système{% endif %}</p>

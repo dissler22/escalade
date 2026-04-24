@@ -17,8 +17,8 @@ def test_member_can_book_and_cancel_flow(client, member_user, open_occurrence):
     assert session_list.status_code == 200
     session_list_html = session_list.content.decode()
     assert "USM Viroflay Escalade" in session_list_html
-    assert "Parcours adhérent" in session_list_html
-    assert "Planning hebdomadaire" in session_list_html
+    assert "Repère adhérent" in session_list_html
+    assert "Pratique libre" in session_list_html
     assert "Semaine suivante" in session_list_html
 
     calendar_week = client.get(
@@ -49,7 +49,7 @@ def test_member_can_book_and_cancel_flow(client, member_user, open_occurrence):
     )
     assert response.status_code == 200
     booked_html = response.content.decode()
-    assert "Reservation enregistree." in booked_html
+    assert "Réservation enregistrée." in booked_html
     assert "Se désinscrire" in booked_html
     assert Reservation.objects.active().filter(user=member_user, occurrence=open_occurrence).exists()
 
@@ -67,7 +67,7 @@ def test_member_can_book_and_cancel_flow(client, member_user, open_occurrence):
     )
     assert response.status_code == 200
     cancelled_html = response.content.decode()
-    assert "Reservation annulee." in cancelled_html
+    assert "Réservation annulée." in cancelled_html
     assert "Détail séance" in cancelled_html
     assert not Reservation.objects.active().filter(user=member_user, occurrence=open_occurrence).exists()
 

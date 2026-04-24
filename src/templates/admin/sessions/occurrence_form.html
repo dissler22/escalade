@@ -21,6 +21,40 @@
       </form>
     </section>
 
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        const sessionTypeSelect = document.querySelector('select[name="session_type"]');
+        const teacherSelect = document.querySelector('select[name="teacher"]');
+        
+        if (sessionTypeSelect && teacherSelect) {
+          const teacherWrapper = teacherSelect.closest('p');
+          
+          const helpText = document.createElement('p');
+          helpText.className = 'help-text free-practice-teacher-help';
+          helpText.textContent = 'Le référent ne se choisit pas ici. Il se gère via les créneaux référents.';
+          helpText.style.color = 'var(--text-muted)';
+          helpText.style.fontSize = '0.875rem';
+          helpText.style.fontStyle = 'italic';
+          
+          teacherWrapper.parentNode.insertBefore(helpText, teacherWrapper.nextSibling);
+          
+          function updateVisibility() {
+            if (sessionTypeSelect.value === 'free_practice') {
+              teacherWrapper.style.display = 'none';
+              helpText.style.display = 'block';
+            } else {
+              teacherWrapper.style.display = 'block';
+              helpText.style.display = 'none';
+            }
+          }
+          
+          sessionTypeSelect.addEventListener('change', updateVisibility);
+          updateVisibility();
+        }
+      });
+    </script>
+
+
     {% if form.instance.pk %}
       <section class="card form-card">
         <div class="section-heading">
@@ -43,7 +77,7 @@
       <section class="card form-card">
         <div class="section-heading">
           <div>
-            <p class="section-kicker">Danger</p>
+            <p class="section-kicker">Suppression</p>
             <h2>Supprimer définitivement cette séance</h2>
           </div>
         </div>
@@ -67,9 +101,9 @@
           <span class="badge {% if occurrence.session_type == 'course' %}status-info{% else %}status-success{% endif %}">
             {{ occurrence.get_session_type_display }}
           </span>
-          <span class="badge status-neutral">Prof: {{ occurrence.display_teacher.full_name|default:"non assigné" }}</span>
           {% if occurrence.is_course %}
-            <span class="badge status-warning">édition prof occurrence-only</span>
+            <span class="badge status-neutral">Prof: {{ occurrence.display_teacher.full_name|default:"non assigné" }}</span>
+            <span class="badge status-warning">édition limitée à cette occurrence</span>
           {% else %}
             <span class="badge status-success">{{ occurrence.coverage_summary.covered }}/{{ occurrence.coverage_summary.total }} créneau(x) couverts</span>
           {% endif %}
@@ -80,9 +114,12 @@
         <section class="card table-card">
           <div class="section-heading">
             <div>
-              <p class="section-kicker">Créneaux responsables</p>
-              <h2>Découpage et corrections</h2>
+              <p class="section-kicker">Créneaux référents</p>
+              <h2>Découpage et couverture</h2>
             </div>
+          </div>
+          <div class="card-body">
+            <p class="help-text" style="margin-bottom: 1rem; color: var(--text-muted); font-style: italic;">Pour une pratique libre, la couverture référent se gère créneau par créneau.</p>
           </div>
           <div class="stack">
             {% for slot in occurrence.slots.all %}
@@ -95,7 +132,7 @@
                     {% elif slot.coverage_status == 'cancelled' %}
                       créneau annulé
                     {% else %}
-                      sans responsable
+                      sans référent
                     {% endif %}
                   </span>
                 </div>
@@ -117,8 +154,8 @@
                   <label>
                     Statut
                     <select name="status">
-                      <option value="open" {% if slot.status == "open" %}selected{% endif %}>Open</option>
-                      <option value="cancelled" {% if slot.status == "cancelled" %}selected{% endif %}>Cancelled</option>
+                      <option value="open" {% if slot.status == "open" %}selected{% endif %}>Ouvert</option>
+                      <option value="cancelled" {% if slot.status == "cancelled" %}selected{% endif %}>Annulé</option>
                     </select>
                   </label>
                   <button type="submit" class="secondary">Corriger le créneau</button>
@@ -134,13 +171,13 @@
                         {% endif %}
                       {% endfor %}
                     </select>
-                    <button type="submit">Affecter un responsable</button>
+                    <button type="submit">Affecter un référent</button>
                   </form>
 
                   {% if slot.current_responsable %}
                     <form method="post" action="{% url 'sessions_admin:slot-release-responsable' slot_id=slot.id %}">
                       {% csrf_token %}
-                      <button type="submit" class="ghost">Retirer le responsable</button>
+                      <button type="submit" class="ghost">Retirer le référent</button>
                     </form>
                   {% endif %}
 
@@ -154,16 +191,17 @@
               <div class="card empty-state">
                 <p class="section-kicker">Découpage</p>
                 <h2>Aucun créneau généré</h2>
-                <p>Cette séance n a actuellement aucun créneau responsable. C est autorisé.</p>
+                <p>Cette séance n'a actuellement aucun créneau référent. C'est autorisé.</p>
               </div>
             {% endfor %}
+
           </div>
         </section>
       {% else %}
         <section class="card empty-state">
           <p class="section-kicker">Cours</p>
           <h2>Pas de logique référent</h2>
-          <p>Les cours affichent le prof et les inscriptions, sans créneau de couverture responsable.</p>
+          <p>Les cours affichent le prof et les inscriptions, sans créneau de couverture référent.</p>
         </section>
       {% endif %}
     {% endif %}

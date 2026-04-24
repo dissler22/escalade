@@ -3,18 +3,15 @@
 {% block title %}Mes réservations{% endblock %}
 
 {% block content %}
-  <section class="stack-lg">
+  <section class="card-grid" style="grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));">
     {% for item in reservation_cards %}
-      {% with reservation=item.reservation occurrence=reservation.occurrence %}
-      <article class="card session-card{% if occurrence.status == 'cancelled' %} is-cancelled{% endif %}">
+      {% with reservation=item.reservation occurrence=item.reservation.occurrence %}
+      <article class="card session-card{% if occurrence.status == 'cancelled' %} is-cancelled{% endif %}" style="display: flex; flex-direction: column;">
         <div class="session-meta">
-          {% if occurrence.status == 'cancelled' or occurrence.status != 'open' %}
+          {% if occurrence.status|lower == 'cancelled' %}
             <span class="badge status-danger">Séance annulée</span>
           {% else %}
             <span class="badge status-success">Réservation confirmée</span>
-          {% endif %}
-          {% if occurrence.remaining_capacity is not None %}
-            <span class="badge status-open">{{ occurrence.remaining_capacity }} place(s) restante(s)</span>
           {% endif %}
         </div>
         <h2 class="item-title">{{ occurrence.label }}</h2>
@@ -27,21 +24,21 @@
             {{ occurrence.session_date|date:"d/m/Y" }} · {{ occurrence.start_time|time:"H:i" }} - {{ occurrence.end_time|time:"H:i" }}
           {% endif %}
         </p>
-        <div class="actions">
-          <a class="button ghost" href="{{ item.calendar_url }}">Ouvrir dans le calendrier</a>
-          {% if occurrence.status == 'open' and item.occurrence_id %}
-            <form method="post" action="{% url 'bookings:cancel-occurrence' occurrence_id=item.occurrence_id %}">
+        <div class="actions" style="margin-top: auto; padding-top: 0.5rem;">
+          <a class="button ghost button-compact" href="{{ item.calendar_url }}">Voir au planning</a>
+          {% if occurrence.status|lower == 'open' and item.occurrence_id %}
+            <form method="post" action="{% url 'bookings:cancel-occurrence' occurrence_id=item.occurrence_id %}" style="margin: 0;">
               {% csrf_token %}
               <input type="hidden" name="week_start" value="{{ item.week_start_iso }}" />
               <input type="hidden" name="selected_occurrence" value="{{ item.occurrence_id }}" />
-              <button type="submit" class="secondary">Annuler</button>
+              <button type="submit" class="secondary button-compact">Annuler</button>
             </form>
           {% endif %}
         </div>
       </article>
       {% endwith %}
     {% empty %}
-      <div class="card empty-state">
+      <div class="card empty-state" style="grid-column: 1 / -1;">
         <p class="section-kicker">Aucune inscription</p>
         <h2>Vous n'avez aucune réservation active</h2>
         <p>Consultez les séances ouvertes pour réserver une prochaine pratique libre.</p>

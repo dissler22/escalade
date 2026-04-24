@@ -11,11 +11,12 @@ require_command curl
 require_command python3
 
 BASE_URL="${1:-http://34.71.54.146}"
-SMOKE_EMAIL="${SMOKE_EMAIL:-}"
+SMOKE_FIRST_NAME="${SMOKE_FIRST_NAME:-}"
+SMOKE_LAST_NAME="${SMOKE_LAST_NAME:-}"
 SMOKE_PASSWORD="${SMOKE_PASSWORD:-}"
 
-if [ -z "${SMOKE_EMAIL}" ] || [ -z "${SMOKE_PASSWORD}" ]; then
-    echo "SMOKE_EMAIL and SMOKE_PASSWORD are required." >&2
+if [ -z "${SMOKE_FIRST_NAME}" ] || [ -z "${SMOKE_LAST_NAME}" ] || [ -z "${SMOKE_PASSWORD}" ]; then
+    echo "SMOKE_FIRST_NAME, SMOKE_LAST_NAME and SMOKE_PASSWORD are required." >&2
     exit 1
 fi
 
@@ -66,7 +67,8 @@ login_status="$(curl -sS -o /dev/null -w '%{http_code}' \
     -c "${cookie_jar}" \
     -e "${BASE_URL}/login/" \
     -X POST "${BASE_URL}/login/" \
-    --data-urlencode "email=${SMOKE_EMAIL}" \
+    --data-urlencode "first_name=${SMOKE_FIRST_NAME}" \
+    --data-urlencode "last_name=${SMOKE_LAST_NAME}" \
     --data-urlencode "password=${SMOKE_PASSWORD}" \
     --data-urlencode "csrfmiddlewaretoken=${csrf_token}")"
 [ "${login_status}" = "302" ] || {

@@ -47,7 +47,7 @@ def test_member_can_log_in_from_public_entry_and_reach_sessions(client, member_u
     assert login_page.status_code == 200
     login_html = login_page.content.decode()
     assert "USM Viroflay Escalade" in login_html
-    assert "Entrer avec votre compte club" in login_html
+    assert "Accès personnel" in login_html
 
     response = client.post(
         reverse("accounts:login"),

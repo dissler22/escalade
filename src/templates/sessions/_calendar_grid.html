@@ -6,12 +6,9 @@
       <div class="calendar-shared__dayheads" role="row">
         {% for day in week.days %}
           <div class="calendar-shared__dayhead{% if day.is_today %} is-today{% endif %}" role="columnheader">
-            <div class="calendar-shared__dayhead-pack">
-              <strong class="calendar-shared__date">{{ day.date|date:"j" }}</strong>
-              <div class="calendar-shared__labels">
-                <span class="calendar-shared__weekday">{{ day.date|date:"D" }}</span>
-                <span class="calendar-shared__full">{{ day.label_full }}</span>
-              </div>
+            <div class="calendar-shared__dayhead-pack" style="flex-direction: column; align-items: center; text-align: center; gap: 0.2rem;">
+              <span class="calendar-shared__weekday" style="font-size: 0.85rem;">{{ day.label_short }}</span>
+              <strong class="calendar-shared__date" style="font-size: 1.8rem;">{{ day.date|date:"j" }}</strong>
             </div>
           </div>
         {% endfor %}
@@ -40,7 +37,7 @@
                   <a
                     class="calendar-block {{ block.status_class }} session-type-{{ block.session_type }}{% if block.is_selected %} is-selected{% endif %}"
                     href="{% url 'sessions:session-list' %}?week_start={{ week.week_start_iso }}&selected_occurrence={{ block.occurrence_id }}#session-detail"
-                    style="top: {{ block.top_pct|unlocalize }}%; height: {{ block.height_pct|unlocalize }}%; left: calc(({{ block.lane|unlocalize }} / {{ block.lane_count|unlocalize }}) * 100%); width: calc((1 / {{ block.lane_count|unlocalize }}) * 100%);"
+                    style="top: {{ block.top_pct|unlocalize }}%; height: {{ block.height_pct|unlocalize }}%; left: calc(({{ block.lane|unlocalize }} / {{ block.lane_count|unlocalize }}) * 100%); width: calc((1 / {{ block.lane_count|unlocalize }}) * 100%); {{ block.background_style|safe }}"
                     title="{{ block.display_label_short }} ({{ block.start_time|time:'H:i' }} - {{ block.end_time|time:'H:i' }})"
                   >
                     <span class="calendar-block__time-minimal">{{ block.start_time|time:"H:i" }}</span>

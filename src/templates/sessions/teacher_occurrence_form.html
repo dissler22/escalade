@@ -8,7 +8,7 @@
       <p class="page-kicker">Parcours référent / prof</p>
       <h1 class="page-title">Modifier une occurrence de cours</h1>
       <p class="page-lead">
-        Vous modifiez uniquement cette occurrence. La série complète et l administration globale restent réservées à l admin.
+        Vous modifiez uniquement cette occurrence. La série complète et l'administration globale restent réservées aux administrateurs.
       </p>
     </div>
 
@@ -20,7 +20,9 @@
         </div>
         <div class="session-meta">
           <span class="badge status-info">{{ occurrence.get_session_type_display }}</span>
-          <span class="badge status-neutral">Prof: {{ occurrence.display_teacher.full_name|default:"non assigné" }}</span>
+          {% if occurrence.is_course %}
+            <span class="badge status-neutral">Prof: {{ occurrence.display_teacher.full_name|default:"non assigné" }}</span>
+          {% endif %}
         </div>
       </div>
       <form method="post">

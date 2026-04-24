@@ -6,6 +6,9 @@
       <div class="actions">
         <button type="button" class="success" data-toggle-account-form>+ Nouveau compte</button>
       </div>
+      {% if notification_sender.notifications_enabled %}
+        <p class="section-note" style="margin-top: 1rem;">Expéditeur des notifications : {{ notification_sender.sender_email }}</p>
+      {% endif %}
     </div>
 
     <section class="card form-card" id="account-creation-form" style="display: none;">
@@ -14,7 +17,7 @@
           <p class="section-kicker">Nouveau compte</p>
           <h2>Créer un accès club</h2>
         </div>
-        <p class="section-note">Le compte démarre avec un code temporaire, puis l adhérent le remplace à sa première connexion.</p>
+          <p class="section-note">Le compte démarre avec un code temporaire, puis l'adhérent le remplace à sa première connexion.</p>
       </div>
       <form method="post" action="{% url 'accounts_admin:account-create' %}">
         {% csrf_token %}
@@ -25,7 +28,7 @@
             {{ create_form.full_name.errors }}
           </label>
           <label>
-            <span>Email</span>
+            <span>Adresse e-mail</span>
             {{ create_form.email }}
             {{ create_form.email.errors }}
           </label>
@@ -40,9 +43,14 @@
             {{ create_form.is_responsable_accredited.errors }}
           </label>
           <label>
-            <span>Passport orange</span>
+            <span>Passeport orange</span>
             {{ create_form.has_orange_passport }}
             {{ create_form.has_orange_passport.errors }}
+          </label>
+          <label>
+            <span>Habilitation prof</span>
+            {{ create_form.can_teach_courses }}
+            {{ create_form.can_teach_courses.errors }}
           </label>
           <label>
             <span>Activation</span>
@@ -81,14 +89,14 @@
       <div class="table-wrap">
         <table class="table table-stack table-stack--expandable">
           <thead>
-            <tr><th>Nom</th><th>Email</th><th>Parcours</th><th>Code</th><th>Accès libre</th><th>Cours rattachés</th><th>Reprise</th><th>Mise à jour</th></tr>
+            <tr><th>Nom</th><th>Adresse e-mail</th><th>Parcours</th><th>Code</th><th>Accès libre</th><th>Cours rattachés</th><th>Reprise</th><th>Mise à jour</th></tr>
           </thead>
           <tbody>
             {% for row in account_rows %}
               {% with user=row.user %}
               <tr data-expandable-row>
                 <td data-label="Nom">{{ user.full_name }}</td>
-                <td data-label="Email">{{ user.email|default:"à renseigner" }}</td>
+                <td data-label="Adresse e-mail">{{ user.email|default:"à renseigner" }}</td>
                 <td data-label="Parcours">
                   <span class="badge {% if user.role == 'admin' %}status-warning{% else %}status-neutral{% endif %}">
                     {{ user.role }}
@@ -105,7 +113,7 @@
                     {% if user.password_state == "active" %}
                       code personnel
                     {% elif user.password_state == "reset_required" %}
-                      reset requis
+                      réinitialisation requise
                     {% else %}
                       code temporaire
                     {% endif %}
@@ -114,11 +122,11 @@
                 <td data-label="Accès libre">
                   <span class="badge {% if user.can_book_free_practice %}status-success{% else %}status-neutral{% endif %}">
                     {% if user.role == "admin" %}
-                      admin
+                      administrateur
                     {% elif user.is_responsable_accredited %}
                       référent autorisé
                     {% elif user.has_orange_passport %}
-                      passport orange
+                      passeport orange
                     {% else %}
                       non autorisé
                     {% endif %}
@@ -149,16 +157,20 @@
                   <form method="post" action="{% url 'accounts_admin:account-status' user_id=user.id %}" class="account-access-form">
                     {% csrf_token %}
                     <select name="role" aria-label="Rôle du compte">
-                      <option value="member" {% if user.role == "member" %}selected{% endif %}>member</option>
-                      <option value="admin" {% if user.role == "admin" %}selected{% endif %}>admin</option>
+                      <option value="member" {% if user.role == "member" %}selected{% endif %}>Membre</option>
+                      <option value="admin" {% if user.role == "admin" %}selected{% endif %}>Administrateur</option>
                     </select>
                     <select name="is_responsable_accredited" aria-label="Accréditation responsable">
                       <option value="true" {% if user.is_responsable_accredited %}selected{% endif %}>responsable</option>
                       <option value="false" {% if not user.is_responsable_accredited %}selected{% endif %}>non</option>
                     </select>
-                    <select name="has_orange_passport" aria-label="Passport orange">
-                      <option value="true" {% if user.has_orange_passport %}selected{% endif %}>passport orange</option>
-                      <option value="false" {% if not user.has_orange_passport %}selected{% endif %}>sans passport</option>
+                    <select name="has_orange_passport" aria-label="Passeport orange">
+                      <option value="true" {% if user.has_orange_passport %}selected{% endif %}>passeport orange</option>
+                      <option value="false" {% if not user.has_orange_passport %}selected{% endif %}>sans passeport</option>
+                    </select>
+                    <select name="can_teach_courses" aria-label="Habilitation prof">
+                      <option value="true" {% if user.can_teach_courses %}selected{% endif %}>prof</option>
+                      <option value="false" {% if not user.can_teach_courses %}selected{% endif %}>non</option>
                     </select>
                     <select name="is_active" aria-label="Activation du compte">
                       <option value="true" {% if user.is_active %}selected{% endif %}>actif</option>
@@ -183,7 +195,7 @@
                   </form>
                   <form method="post" action="{% url 'accounts_admin:account-reset-password' user_id=user.id %}" class="inline-form">
                     {% csrf_token %}
-                    <button type="submit" class="button ghost">Reset code</button>
+                    <button type="submit" class="button ghost">Réinitialiser le code</button>
                   </form>
                 </td>
               </tr>

@@ -14,7 +14,12 @@ def test_admin_can_grant_and_revoke_responsable_accreditation(client, admin_user
 
     response = client.post(
         reverse("accounts_admin:account-status", args=[member_user.pk]),
-        {"role": "member", "is_active": "true", "is_responsable_accredited": "true"},
+        {
+            "role": "member",
+            "is_active": "true",
+            "is_responsable_accredited": "true",
+            "can_teach_courses": "false",
+        },
         follow=True,
     )
     assert response.status_code == 200
@@ -24,7 +29,12 @@ def test_admin_can_grant_and_revoke_responsable_accreditation(client, admin_user
     take_slot_responsibility(user=member_user, slot=open_slot)
     response = client.post(
         reverse("accounts_admin:account-status", args=[member_user.pk]),
-        {"role": "member", "is_active": "true", "is_responsable_accredited": "false"},
+        {
+            "role": "member",
+            "is_active": "true",
+            "is_responsable_accredited": "false",
+            "can_teach_courses": "false",
+        },
         follow=True,
     )
     assert response.status_code == 200

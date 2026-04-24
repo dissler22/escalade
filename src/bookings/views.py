@@ -57,7 +57,7 @@ def book_occurrence(request: HttpRequest, occurrence_id: int) -> HttpResponse:
         except ValidationError as exc:
             messages.error(request, exc.message)
         else:
-            messages.success(request, "Reservation enregistree.")
+            messages.success(request, "Réservation enregistrée.")
     return _redirect_after_occurrence_action(request, occurrence=occurrence)
 
 
@@ -68,11 +68,11 @@ def cancel_occurrence(request: HttpRequest, occurrence_id: int) -> HttpResponse:
         try:
             cancel_member_booking(user=request.user, occurrence=occurrence)
         except Reservation.DoesNotExist:
-            messages.error(request, "Reservation introuvable.")
+            messages.error(request, "Réservation introuvable.")
         except ValidationError as exc:
             messages.error(request, exc.message)
         else:
-            messages.success(request, "Reservation annulee.")
+            messages.success(request, "Réservation annulée.")
     return _redirect_after_occurrence_action(
         request,
         occurrence=occurrence,

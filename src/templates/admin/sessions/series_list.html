@@ -22,16 +22,20 @@
       <div class="table-wrap">
         <table class="table table-stack table-stack--expandable">
           <thead>
-            <tr><th>Label</th><th>Type</th><th>Jour</th><th>Prof par défaut</th><th>Capacité</th><th>Actions</th></tr>
+            <tr><th>Libellé</th><th>Type</th><th>Jour</th><th>Prof par défaut</th><th>Capacité</th><th>Actions</th></tr>
           </thead>
           <tbody>
             {% for row in series_rows %}
               {% with item=row.series %}
               <tr data-expandable-row>
-                <td data-label="Label">{{ item.label }}</td>
+                <td data-label="Libellé">{{ item.label }}</td>
                 <td data-label="Type"><span class="badge {% if item.session_type == 'course' %}status-info{% else %}status-success{% endif %}">{{ item.get_session_type_display }}</span></td>
                 <td data-label="Jour">{{ item.get_weekday_display }}</td>
+              {% if item.session_type == 'course' %}
                 <td data-label="Prof par défaut">{{ item.default_teacher.full_name|default:"-" }}</td>
+              {% else %}
+                <td data-label="Prof par défaut"><span class="text-muted">N/A</span></td>
+              {% endif %}
                 <td data-label="Capacité">{{ item.default_capacity }} place(s)</td>
                 <td data-label="Actions">
                   <div class="table-actions">
@@ -69,16 +73,20 @@
       <div class="table-wrap">
         <table class="table table-stack table-stack--expandable">
           <thead>
-            <tr><th>Label</th><th>Date</th><th>Type</th><th>Prof</th><th>Couverture</th><th>Actions</th></tr>
+            <tr><th>Libellé</th><th>Date</th><th>Type</th><th>Prof</th><th>Couverture</th><th>Actions</th></tr>
           </thead>
           <tbody>
             {% for row in occurrence_rows %}
               {% with occurrence=row.occurrence %}
               <tr data-expandable-row>
-                <td data-label="Label">{{ occurrence.label }}</td>
+                <td data-label="Libellé">{{ occurrence.label }}</td>
                 <td data-label="Date">{{ occurrence.session_date }}</td>
                 <td data-label="Type"><span class="badge {% if occurrence.session_type == 'course' %}status-info{% else %}status-success{% endif %}">{{ occurrence.get_session_type_display }}</span></td>
+              {% if occurrence.session_type == 'course' %}
                 <td data-label="Prof">{{ occurrence.display_teacher.full_name|default:"-" }}</td>
+              {% else %}
+                <td data-label="Prof"><span class="text-muted">N/A</span></td>
+              {% endif %}
                 <td data-label="Couverture">
                   {% if occurrence.is_free_practice %}
                     <span class="badge {% if occurrence.coverage_summary.uncovered %}status-danger{% else %}status-success{% endif %}">
@@ -92,7 +100,7 @@
                   <div class="table-actions">
                     <a class="button secondary" href="{% url 'sessions_admin:occurrence-edit' occurrence_id=occurrence.id %}">Éditer</a>
                     <a class="button ghost" href="{% url 'bookings_admin:session-reservations' occurrence_id=occurrence.id %}">Inscrits</a>
-                    <a class="button ghost" href="{% url 'audit:session-history' occurrence_id=occurrence.id %}">Audit</a>
+                    <a class="button ghost" href="{% url 'audit:session-history' occurrence_id=occurrence.id %}">Historique</a>
                     <form method="post" action="{% url 'sessions_admin:occurrence-status' occurrence_id=occurrence.id %}" class="inline-form">
                       {% csrf_token %}
                       <input type="hidden" name="return_to" value="list" />
@@ -111,7 +119,7 @@
               </tr>
               {% endwith %}
             {% empty %}
-              <tr><td colspan="6">Aucune occurrence.</td></tr>
+              <tr><td colspan="6">Aucune occurrence à venir.</td></tr>
             {% endfor %}
           </tbody>
         </table>

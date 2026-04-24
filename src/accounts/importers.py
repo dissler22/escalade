@@ -182,6 +182,7 @@ def import_accounts_from_roster(*, actor, roster_data: str) -> BulkImportResult:
                         "role": user.role,
                         "is_responsable_accredited": user.is_responsable_accredited,
                         "has_orange_passport": user.has_orange_passport,
+                        "can_teach_courses": user.can_teach_courses,
                         "course_series_ids": sorted(item["series_ids"]),
                         "password_state": user.password_state,
                     },
@@ -199,6 +200,7 @@ def import_accounts_from_roster(*, actor, roster_data: str) -> BulkImportResult:
                         "role": user.role,
                         "is_responsable_accredited": user.is_responsable_accredited,
                         "has_orange_passport": user.has_orange_passport,
+                        "can_teach_courses": user.can_teach_courses,
                         "course_series_ids": sorted(item["series_ids"]),
                     },
                 )

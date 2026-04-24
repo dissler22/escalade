@@ -43,7 +43,7 @@ class NameAuthenticationForm(forms.Form):
 
 class AdminAccountCreateForm(forms.Form):
     full_name = forms.CharField(label="Nom complet", max_length=255)
-    email = forms.EmailField(label="Email", required=False)
+    email = forms.EmailField(label="Adresse e-mail", required=False)
     role = forms.ChoiceField(label="Parcours", choices=get_user_model().Role.choices)
     is_responsable_accredited = forms.TypedChoiceField(
         label="Accréditation référent",
@@ -54,6 +54,12 @@ class AdminAccountCreateForm(forms.Form):
     has_orange_passport = forms.TypedChoiceField(
         label="Passport orange",
         choices=(("true", "passport orange"), ("false", "sans passport")),
+        coerce=lambda value: value == "true",
+        initial="false",
+    )
+    can_teach_courses = forms.TypedChoiceField(
+        label="Habilitation prof",
+        choices=(("true", "prof"), ("false", "non")),
         coerce=lambda value: value == "true",
         initial="false",
     )
@@ -93,7 +99,7 @@ class AdminAccountCreateForm(forms.Form):
 
 
 class RequiredPasswordChangeForm(PasswordChangeForm):
-    email = forms.EmailField(label="Email")
+    email = forms.EmailField(label="Adresse e-mail")
     old_password = forms.CharField(label="Code temporaire", widget=forms.PasswordInput)
     new_password1 = forms.CharField(label="Nouveau code", widget=forms.PasswordInput)
     new_password2 = forms.CharField(label="Confirmer le nouveau code", widget=forms.PasswordInput)

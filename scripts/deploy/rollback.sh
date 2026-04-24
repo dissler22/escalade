@@ -29,7 +29,7 @@ fi
 
 restart_services
 
-if [ -n "${SMOKE_EMAIL:-}" ] && [ -n "${SMOKE_PASSWORD:-}" ]; then
+if [ -n "${SMOKE_FIRST_NAME:-}" ] && [ -n "${SMOKE_LAST_NAME:-}" ] && [ -n "${SMOKE_PASSWORD:-}" ]; then
     "${SCRIPT_DIR}/smoke_check.sh" "${SMOKE_BASE_URL:-http://34.71.54.146}"
 fi
 

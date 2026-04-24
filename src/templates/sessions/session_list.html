@@ -6,26 +6,31 @@
   <section class="stack-lg">
     <section class="card calendar-shell">
       <div class="calendar-toolbar">
-        <div>
-          <h1 class="section-title">Semaine du {{ week.week_start|date:"j F" }}</h1>
-        </div>
         <div class="calendar-legend">
-          <span class="legend-item"><span class="legend-dot status-free-practice"></span> Pratique libre</span>
-          <span class="legend-item"><span class="legend-dot status-course"></span> Cours</span>
-          <span class="legend-item"><span class="legend-dot status-full"></span> Complet/Annulé</span>
+          <span class="legend-item" title="Les créneaux sans responsable apparaissent en jaune">
+            <span class="legend-dot" style="background: linear-gradient(135deg, #a8e0b9 50%, #ffe066 50%); border-color: #1e6d46;"></span> Pratique libre
+          </span>
+          <span class="legend-item">
+            <span class="legend-dot status-course"></span> Cours
+          </span>
+          <span class="legend-item">
+            <span class="legend-dot status-full"></span> Complet/Annulé
+          </span>
         </div>
-        <div class="actions">
+        <div class="actions" style="align-items: center;">
           <a
             class="button secondary button-icon"
+            style="width: 2.2rem; min-height: 2.2rem; font-size: 1.2rem;"
             href="{% url 'sessions:session-list' %}?week_start={{ week.previous_week_start_iso }}"
             aria-label="Semaine précédente"
             title="Semaine précédente"
           >
             <span aria-hidden="true">‹</span>
           </a>
-          <a class="button secondary button-compact" href="{% url 'sessions:session-list' %}">Cette semaine</a>
+          <h1 class="section-title" style="margin: 0 0.5rem; font-size: 1.25rem;">Semaine du {{ week.week_start|date:"j/m" }}</h1>
           <a
             class="button secondary button-icon"
+            style="width: 2.2rem; min-height: 2.2rem; font-size: 1.2rem;"
             href="{% url 'sessions:session-list' %}?week_start={{ week.next_week_start_iso }}"
             aria-label="Semaine suivante"
             title="Semaine suivante"
@@ -170,6 +175,15 @@
         list.addEventListener("pointerup", endDrag);
         list.addEventListener("pointercancel", endDrag);
         list.addEventListener("pointerleave", endDrag);
+
+        // Rend les heures "collantes" lors du scroll horizontal
+        const hourLabels = list.querySelectorAll(".calendar-hour-marker__label");
+        xScroller.addEventListener("scroll", () => {
+          const scrollLeft = xScroller.scrollLeft;
+          hourLabels.forEach(label => {
+            label.style.transform = `translateX(${scrollLeft}px)`;
+          });
+        });
       }
 
       function focusCalendars() {

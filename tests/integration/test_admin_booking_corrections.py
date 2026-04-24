@@ -21,7 +21,7 @@ def test_admin_can_add_and_remove_reservation(client, admin_user, member_user, o
         follow=True,
     )
     assert response.status_code == 200
-    assert "Reservation ajoutee." in response.content.decode()
+    assert "Réservation ajoutée." in response.content.decode()
     assert Reservation.objects.active().filter(user=member_user, occurrence=open_occurrence).exists()
 
     response = client.post(
@@ -29,7 +29,7 @@ def test_admin_can_add_and_remove_reservation(client, admin_user, member_user, o
         follow=True,
     )
     assert response.status_code == 200
-    assert "Reservation retiree." in response.content.decode()
+    assert "Réservation retirée." in response.content.decode()
     assert not Reservation.objects.active().filter(user=member_user, occurrence=open_occurrence).exists()
 
     history = client.get(reverse("audit:session-history", args=[open_occurrence.pk]))

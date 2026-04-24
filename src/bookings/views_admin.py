@@ -53,7 +53,7 @@ def add_reservation(request: HttpRequest, occurrence_id: int) -> HttpResponse:
         except ValidationError as exc:
             messages.error(request, exc.message)
         else:
-            messages.success(request, "Reservation ajoutee.")
+            messages.success(request, "Réservation ajoutée.")
     return redirect("bookings_admin:session-reservations", occurrence_id=occurrence.pk)
 
 
@@ -65,9 +65,9 @@ def remove_reservation(request: HttpRequest, occurrence_id: int, user_id: int) -
         try:
             remove_manual_booking(actor=request.user, occurrence=occurrence, user=user)
         except Reservation.DoesNotExist:
-            messages.error(request, "Reservation introuvable.")
+            messages.error(request, "Réservation introuvable.")
         except ValidationError as exc:
             messages.error(request, exc.message)
         else:
-            messages.success(request, "Reservation retiree.")
+            messages.success(request, "Réservation retirée.")
     return redirect("bookings_admin:session-reservations", occurrence_id=occurrence.pk)

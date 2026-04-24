@@ -1,11 +1,12 @@
 from django import forms
 from django.contrib.auth import get_user_model
+from django.forms import inlineformset_factory
 
-from .models import EmailAutomationSettings, SessionOccurrence, SessionSeries
+from .models import EmailAutomationSettings, SessionOccurrence, SessionSeries, SessionSeriesSlot
 
 
 def _teacher_queryset():
-    return get_user_model().objects.filter(is_active=True).order_by("full_name")
+    return get_user_model().objects.filter(is_active=True, can_teach_courses=True).order_by("full_name")
 
 
 class SessionSeriesForm(forms.ModelForm):
@@ -14,6 +15,8 @@ class SessionSeriesForm(forms.ModelForm):
         self.fields["default_teacher"].queryset = _teacher_queryset()
         self.fields["session_type"].required = False
         self.fields["session_type"].initial = SessionSeries.SessionType.FREE_PRACTICE
+        self.fields["default_teacher"].help_text = '<span class="teacher-help-text" style="display: none;">Le référent ne se choisit pas ici. Il se gère via les créneaux responsables.</span>'
+
 
     def clean_session_type(self):
         return self.cleaned_data.get("session_type") or SessionSeries.SessionType.FREE_PRACTICE
@@ -36,6 +39,20 @@ class SessionSeriesForm(forms.ModelForm):
         }
 
 
+SessionSeriesSlotFormSet = inlineformset_factory(
+    SessionSeries,
+    SessionSeriesSlot,
+    fields=["sequence_index", "start_time", "end_time"],
+    extra=0,
+    can_delete=True,
+    widgets={
+        "start_time": forms.TimeInput(attrs={"type": "time"}),
+        "end_time": forms.TimeInput(attrs={"type": "time"}),
+        "sequence_index": forms.NumberInput(attrs={"min": 1, "class": "sequence-input"}),
+    }
+)
+
+
 class SessionOccurrenceForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -47,6 +64,8 @@ class SessionOccurrenceForm(forms.ModelForm):
         self.fields["teacher"].queryset = _teacher_queryset()
         self.fields["session_type"].required = False
         self.fields["session_type"].initial = SessionSeries.SessionType.FREE_PRACTICE
+        self.fields["teacher"].help_text = '<span class="teacher-help-text" style="display: none;">Le référent ne se choisit pas ici. Il se gère via les créneaux responsables.</span>'
+
 
     def clean_session_type(self):
         return self.cleaned_data.get("session_type") or SessionSeries.SessionType.FREE_PRACTICE

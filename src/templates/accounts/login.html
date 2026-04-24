@@ -4,55 +4,21 @@
 
 {% block content %}
   <section class="stack-lg">
-    <div class="card page-intro">
-      <p class="page-kicker">Entrée club</p>
-      <h1 class="page-title">Connexion</h1>
-      <p class="page-lead">
-        Retrouvez le parcours de réservation du club avec une interface mobile plus
-        lisible, sans changement des actions habituelles.
-      </p>
-      <div class="meta-list">
-        <span class="meta-pill">USM Viroflay Escalade</span>
-        <span class="meta-pill">Connexion sécurisée</span>
-        <span class="meta-pill">Parcours adhérent et administration</span>
-      </div>
-    </div>
-
-    <div class="auth-layout">
-      <section class="card form-card">
-        <div class="section-heading">
-          <div>
-            <p class="section-kicker">Accès personnel</p>
-            <h2>Entrer avec votre compte club</h2>
-          </div>
+    <section class="card form-card">
+      <div class="section-heading">
+        <div>
+          <p class="section-kicker">Connexion</p>
+          <h2>Accès personnel</h2>
         </div>
-        <p class="section-note">Utilisez votre prénom, votre nom et votre code. À la première connexion, le code temporaire est 2026.</p>
-        <form method="post">
-          {% csrf_token %}
-          <div class="form-body">{{ form.as_p }}</div>
-          <button type="submit">Se connecter</button>
-        </form>
-      </section>
-
-      <aside class="auth-aside">
-        <section class="card metric-card">
-          <p class="section-kicker">Repère visuel</p>
-          <h2>Univers USMV Escalade</h2>
-          <ul class="info-list">
-            <li>Nom du club visible dès l'entrée.</li>
-            <li>Contraste fort pour les actions prioritaires.</li>
-            <li>Présentation mobile simple à lire rapidement.</li>
-          </ul>
-        </section>
-        <section class="card empty-state">
-          <p class="section-kicker">Aide</p>
-          <h2>Accès réservé</h2>
-          <p>
-            Cette page reste réservée aux adhérents autorisés et aux administrateurs.
-            En cas de compte inactif, contactez un responsable du club.
-          </p>
-        </section>
-      </aside>
-    </div>
+      </div>
+      <p class="section-note">
+        Site de réservation pour la salle d'escalade de Viroflay. Bienvenue.
+      </p>
+      <form method="post">
+        {% csrf_token %}
+        <div class="form-body">{{ form.as_p }}</div>
+        <button type="submit">Se connecter</button>
+      </form>
+    </section>
   </section>
 {% endblock %}

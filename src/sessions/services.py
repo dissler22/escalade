@@ -76,6 +76,7 @@ class CalendarOccurrenceBlock:
     lane_count: int = 1
     top_pct: float = 0.0
     height_pct: float = 0.0
+    background_style: str = ""
 
 
 @dataclass(slots=True)
@@ -249,14 +250,11 @@ def _member_calendar_statuses() -> tuple[str, ...]:
         SessionOccurrence.Status.OPEN,
         SessionOccurrence.Status.CLOSED,
         SessionOccurrence.Status.CANCELLED,
+        SessionOccurrence.Status.COMPLETED,
     )
 
 
 def _member_occurrence_queryset(*, start_date=None, end_date=None, today=None, current_time=None):
-    if today is None:
-        today = timezone.localdate()
-    if current_time is None:
-        current_time = timezone.localtime().time()
     active_reservations = Reservation.objects.active().select_related("user")
     active_assignments = ResponsibleAssignment.objects.filter(
         status=ResponsibleAssignment.Status.ACTIVE
@@ -269,7 +267,6 @@ def _member_occurrence_queryset(*, start_date=None, end_date=None, today=None, c
         )
         .select_related("series", "teacher", "series__default_teacher")
         .filter(status__in=_member_calendar_statuses())
-        .filter(_future_occurrence_filter(today=today, current_time=current_time))
         .order_by("session_date", "start_time", "id")
     )
     if start_date is not None:
@@ -336,11 +333,17 @@ def get_occurrence_access_policy(*, user, occurrence: SessionOccurrence) -> Occu
             if user.can_book_free_practice:
                 can_reserve = True
             else:
-                denial_reason = "Reserve aux adherents avec passport orange ou accreditation referent."
+                denial_reason = (
+                    "Vous n'avez pas de passeport orange pour la pratique libre. "
+                    "Pour plus d'info : escalade@usmviroflay.fr"
+                )
         elif user_has_course_access(user=user, occurrence=occurrence):
             can_reserve = True
         else:
-            denial_reason = "Reserve aux adherents rattaches a ce cours."
+            denial_reason = (
+                "Vous n'êtes pas rattaché à ce cours. "
+                "Pour plus d'info : escalade@usmviroflay.fr"
+            )
     else:
         if occurrence.status == SessionOccurrence.Status.CANCELLED:
             denial_reason = "Cette seance est annulee."
@@ -407,12 +410,72 @@ def _coverage_summary(occurrence: SessionOccurrence) -> dict[str, int]:
     }
 
 
+def _build_occurrence_background_style(occurrence: SessionOccurrence) -> str:
+    if occurrence.status == SessionOccurrence.Status.CANCELLED:
+        return ""
+    
+    if occurrence.is_free_practice:
+        slots = list(occurrence.slots.all().order_by("start_time"))
+        if not slots:
+            return ""
+        
+        start_m = occurrence.start_time.hour * 60 + occurrence.start_time.minute
+        end_m = occurrence.end_time.hour * 60 + occurrence.end_time.minute
+        total_duration = max(1, end_m - start_m)
+        
+        stops = []
+        current_m = start_m
+        
+        for slot in slots:
+            slot_start_m = slot.start_time.hour * 60 + slot.start_time.minute
+            slot_end_m = slot.end_time.hour * 60 + slot.end_time.minute
+            
+            # Gap before this slot is considered "intentionally without referent" -> green
+            if slot_start_m > current_m:
+                gap_start_pct = max(0, min(100, (current_m - start_m) / total_duration * 100))
+                gap_end_pct = max(0, min(100, (slot_start_m - start_m) / total_duration * 100))
+                stops.append(f"#e0f2e7 {gap_start_pct:.1f}%")
+                stops.append(f"#e0f2e7 {gap_end_pct:.1f}%")
+            
+            actual_start_m = max(current_m, slot_start_m)
+            if actual_start_m < slot_end_m:
+                start_pct = max(0, min(100, (actual_start_m - start_m) / total_duration * 100))
+                end_pct = max(0, min(100, (slot_end_m - start_m) / total_duration * 100))
+                
+                coverage = _slot_coverage_status(slot)
+                if coverage == SessionSlot.CoverageStatus.COVERED:
+                    color = "#e0f2e7"  # Green (covered)
+                elif coverage == SessionSlot.CoverageStatus.CANCELLED:
+                    color = "#f9e2e0"  # Red (cancelled)
+                else:
+                    color = "#fff9c4"  # Yellow (uncovered)
+                    
+                stops.append(f"{color} {start_pct:.1f}%")
+                stops.append(f"{color} {end_pct:.1f}%")
+                
+                current_m = slot_end_m
+                
+        # Gap after the last slot -> green
+        if current_m < end_m:
+            gap_start_pct = max(0, min(100, (current_m - start_m) / total_duration * 100))
+            stops.append(f"#e0f2e7 {gap_start_pct:.1f}%")
+            stops.append(f"#e0f2e7 100.0%")
+            
+        if stops:
+            return f"background: linear-gradient(to bottom, {', '.join(stops)});"
+        return ""
+    
+    return ""
+
+
 def _occurrence_status_summary(occurrence: SessionOccurrence) -> tuple[str, str]:
     remaining_capacity = _occurrence_remaining_capacity(occurrence)
     if occurrence.status == SessionOccurrence.Status.CANCELLED:
-        return ("Annulee", "status-danger")
+        return ("Annulée", "status-danger")
+    if occurrence.status == SessionOccurrence.Status.COMPLETED:
+        return ("Terminée", "status-neutral")
     if occurrence.status == SessionOccurrence.Status.CLOSED:
-        return ("Fermee", "status-warning")
+        return ("Fermée", "status-warning")
     if remaining_capacity == 0:
         return ("Complet", "status-danger")
     return ("", "status-open")
@@ -531,6 +594,8 @@ def _build_day_blocks(day_occurrences: list[SessionOccurrence], *, selected_occu
         top_pct = max(0, (clamped_start - visible_start_m) / total_range * 100)
         height_pct = max(5, (clamped_end - clamped_start) / total_range * 100) # Min height 5%
         
+        background_style = _build_occurrence_background_style(occurrence)
+        
         blocks.append(
             CalendarOccurrenceBlock(
                 occurrence=occurrence,
@@ -557,6 +622,7 @@ def _build_day_blocks(day_occurrences: list[SessionOccurrence], *, selected_occu
                 lane_count=max(b["lane_count"], b["lane"] + 1),
                 top_pct=top_pct,
                 height_pct=height_pct,
+                background_style=background_style,
             )
         )
     return blocks
@@ -621,7 +687,10 @@ def _build_inline_detail(*, occurrence: SessionOccurrence, user, week_start: dt.
         session_type_label=_session_type_label(occurrence.session_type),
         title=occurrence.label,
         date_label=formats.date_format(occurrence.session_date, "l j F"),
-        time_label=f"{occurrence.start_time:%H:%M} - {occurrence.end_time:%H:%M}",
+        time_label=(
+            f"{occurrence.start_time:%H}h{occurrence.start_time:%M} - "
+            f"{occurrence.end_time:%H}h{occurrence.end_time:%M}"
+        ),
         status_label=status_label,
         status_class=status_class,
         remaining_capacity_label=f"{remaining_capacity} place(s) restante(s)",
@@ -664,14 +733,31 @@ def build_member_calendar_page(*, user, week_start_value=None, selected_occurren
 
     days: list[CalendarDay] = []
     today = timezone.localdate()
+    # Libellés des jours/mois en français (sans dépendre de la locale du serveur).
+    weekday_abbrev_fr = ["lun.", "mar.", "mer.", "jeu.", "ven.", "sam.", "dim."]
+    weekday_full_fr = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"]
+    month_full_fr = [
+        "janvier",
+        "février",
+        "mars",
+        "avril",
+        "mai",
+        "juin",
+        "juillet",
+        "août",
+        "septembre",
+        "octobre",
+        "novembre",
+        "décembre",
+    ]
     for offset in range(7):
         current_date = week_start + dt.timedelta(days=offset)
         day_occurrences = [occurrence for occurrence in occurrences if occurrence.session_date == current_date]
         days.append(
             CalendarDay(
                 date=current_date,
-                label_short=formats.date_format(current_date, "D j"),
-                label_full=formats.date_format(current_date, "l j F"),
+                label_short=weekday_abbrev_fr[current_date.weekday()],
+                label_full=f"{weekday_full_fr[current_date.weekday()]} {current_date.day} {month_full_fr[current_date.month - 1]}",
                 is_today=current_date == today,
                 occurrence_blocks=_build_day_blocks(
                     day_occurrences,
@@ -731,11 +817,23 @@ def _future_slot_filter(*, today=None, current_time=None, prefix=""):
     )
 
 
+def occurrence_is_past(*, occurrence: SessionOccurrence, now=None) -> bool:
+    if now is None:
+        now = timezone.now()
+    return occurrence.ends_at <= now
+
+
+def slot_is_past(*, slot: SessionSlot, now=None) -> bool:
+    if now is None:
+        now = timezone.now()
+    return slot.ends_at <= now
+
+
 def _get_slot_segments(*, session_date, start_time, end_time):
     start_dt = dt.datetime.combine(session_date, start_time)
     end_dt = dt.datetime.combine(session_date, end_time)
     if end_dt <= start_dt:
-        raise ValidationError("End time must be after start time.")
+        raise ValidationError("L’heure de fin doit être après l’heure de début.")
     segments = []
     current = start_dt
     sequence = 1
@@ -800,9 +898,14 @@ def list_member_reservations(user):
     )
 
 
-def create_series(*, actor, cleaned_data, weeks=8):
+def create_series(*, actor, cleaned_data, slot_formset=None, weeks=8):
     with transaction.atomic():
         series = SessionSeries.objects.create(created_by=actor, **cleaned_data)
+        if slot_formset is not None:
+            slot_formset.instance = series
+            slot_formset.save()
+            if hasattr(series, "_prefetched_objects_cache"):
+                series._prefetched_objects_cache.pop("slot_templates", None)
         generate_future_occurrences(series=series, actor=actor, weeks=weeks)
         record_event(
             actor=actor,
@@ -830,7 +933,12 @@ def _build_future_series_dates(*, weekday, count, reference_date=None):
     return target_dates
 
 
-def update_series(*, actor, series, cleaned_data):
+def _build_temporary_series_dates(*, current_dates, target_dates):
+    anchor_date = max([timezone.localdate(), *current_dates, *target_dates]) + dt.timedelta(days=400)
+    return [anchor_date + dt.timedelta(days=index) for index in range(len(current_dates))]
+
+
+def update_series(*, actor, series, cleaned_data, slot_formset=None):
     previous_session_type = series.session_type
     previous_default_teacher_id = series.default_teacher_id
     previous_weekday = series.weekday
@@ -839,11 +947,24 @@ def update_series(*, actor, series, cleaned_data):
     series.full_clean()
     with transaction.atomic():
         series.save()
+        if slot_formset is not None:
+            slot_formset.instance = series
+            slot_formset.save()
+            if hasattr(series, "_prefetched_objects_cache"):
+                series._prefetched_objects_cache.pop("slot_templates", None)
+        
         occurrences = list(series.occurrences.all().order_by("session_date", "id"))
         target_dates = _build_future_series_dates(
             weekday=series.weekday,
             count=len(occurrences),
         )
+        temporary_dates = _build_temporary_series_dates(
+            current_dates=[occurrence.session_date for occurrence in occurrences],
+            target_dates=target_dates,
+        )
+        for occurrence, temporary_date in zip(occurrences, temporary_dates, strict=True):
+            occurrence.session_date = temporary_date
+            occurrence.save(update_fields=["session_date", "updated_at"])
         for occurrence, target_date in zip(occurrences, target_dates, strict=True):
             occurrence.label = series.label
             occurrence.session_date = target_date
@@ -908,13 +1029,40 @@ def sync_occurrence_slots(*, actor, occurrence, create_defaults_if_empty=True):
         if occurrence.slots.exists():
             occurrence.slots.all().delete()
         return []
-    existing_slots = list(occurrence.slots.order_by("sequence_index"))
-    if not existing_slots and create_defaults_if_empty:
+        
+    if occurrence.series and occurrence.series.slot_templates.exists():
+        expected_segments = [
+            {
+                "sequence_index": template.sequence_index,
+                "start_time": template.start_time,
+                "end_time": template.end_time,
+            }
+            for template in occurrence.series.slot_templates.all()
+        ]
+    else:
         expected_segments = _get_slot_segments(
             session_date=occurrence.session_date,
             start_time=occurrence.start_time,
             end_time=occurrence.end_time,
         )
+
+    existing_slots = list(occurrence.slots.order_by("sequence_index"))
+    
+    if existing_slots:
+        matches = len(existing_slots) == len(expected_segments)
+        if matches:
+            for slot, segment in zip(existing_slots, expected_segments):
+                if slot.start_time != segment["start_time"] or slot.end_time != segment["end_time"]:
+                    matches = False
+                    break
+        
+        if not matches:
+            has_commitments = any(_slot_has_commitments(s) for s in existing_slots)
+            if not has_commitments:
+                occurrence.slots.all().delete()
+                existing_slots = []
+
+    if not existing_slots and create_defaults_if_empty:
         created_slots = []
         for segment in expected_segments:
             slot = SessionSlot.objects.create(
@@ -1041,6 +1189,8 @@ def update_occurrence_as_teacher(*, actor, occurrence, cleaned_data):
         raise ValidationError("Vous ne pouvez modifier que vos propres occurrences de cours.")
     if occurrence.is_free_practice:
         raise ValidationError("Cette occurrence n est pas un cours.")
+    if occurrence_is_past(occurrence=occurrence):
+        raise ValidationError("Impossible de modifier une occurrence passée.")
 
     for forbidden_field in ("series", "session_type", "teacher"):
         cleaned_data.pop(forbidden_field, None)
@@ -1106,21 +1256,6 @@ def change_occurrence_status(*, actor, occurrence, status, reason=""):
 def update_slot(*, actor, slot, cleaned_data):
     if slot.occurrence.is_course:
         raise ValidationError("Les cours n utilisent pas de creneaux responsables.")
-    active_count = slot.reservations.active().count()
-    new_capacity = cleaned_data.get("capacity", slot.capacity)
-    if new_capacity < active_count:
-        raise ValidationError("La capacite ne peut pas etre inferieure aux reservations actives.")
-
-    new_start_time = cleaned_data.get("start_time", slot.start_time)
-    new_end_time = cleaned_data.get("end_time", slot.end_time)
-    if new_end_time <= new_start_time:
-        raise ValidationError("La fin doit etre apres le debut.")
-    if dt.datetime.combine(slot.occurrence.session_date, new_end_time) - dt.datetime.combine(
-        slot.occurrence.session_date, new_start_time
-    ) > MAX_SLOT_DURATION:
-        raise ValidationError("Un creneau ne peut pas depasser 90 minutes.")
-    _assert_slot_inside_occurrence(slot.occurrence, new_start_time, new_end_time)
-    _assert_slot_does_not_overlap(slot, occurrence=slot.occurrence, start_time=new_start_time, end_time=new_end_time)
 
     with transaction.atomic():
         for field, value in cleaned_data.items():

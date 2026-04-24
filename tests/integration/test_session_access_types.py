@@ -24,6 +24,7 @@ def test_admin_can_manage_orange_passport_and_course_memberships(
             "is_active": "true",
             "is_responsable_accredited": "false",
             "has_orange_passport": "true",
+            "can_teach_courses": "false",
             "course_series_ids": [str(course_series.pk)],
         },
         follow=True,
@@ -54,7 +55,46 @@ def test_calendar_distinguishes_free_practice_and_course(
     assert "Pratique libre" in html
     assert "Cours" in html
     assert "Prof: Teacher User" in html
-    assert "sans logique référent" in html
+    assert "Cliquer pour prendre ce créneau" not in html
+
+
+@pytest.mark.django_db
+def test_calendar_keeps_past_occurrences_visible_in_selected_week(
+    client,
+    member_user,
+    admin_user,
+):
+    past_date = timezone.localdate() - dt.timedelta(days=2)
+    occurrence = SessionOccurrence.objects.create(
+        label="Pratique libre passée",
+        session_date=past_date,
+        start_time=dt.time(19, 0),
+        end_time=dt.time(21, 0),
+        capacity=12,
+        session_type=SessionSeries.SessionType.FREE_PRACTICE,
+        status=SessionOccurrence.Status.OPEN,
+        created_by=admin_user,
+    )
+    SessionSlot.objects.create(
+        occurrence=occurrence,
+        sequence_index=1,
+        start_time=dt.time(19, 0),
+        end_time=dt.time(20, 30),
+        capacity=12,
+        status=SessionSlot.Status.OPEN,
+    )
+
+    client.force_login(member_user)
+    week_start = (past_date - dt.timedelta(days=past_date.weekday())).isoformat()
+    response = client.get(
+        f"{reverse('sessions:session-list')}?week_start={week_start}&selected_occurrence={occurrence.pk}"
+    )
+
+    assert response.status_code == 200
+    html = response.content.decode()
+    assert "Pratique libre passée" in html
+    assert "Cette seance a deja commence." in html
+    assert "S'inscrire" not in html
 
 
 @pytest.mark.django_db
@@ -133,3 +173,30 @@ def test_teacher_can_edit_only_own_course_occurrence(client, teacher_user, cours
     course_occurrence.save(update_fields=["teacher"])
     response = client.get(reverse("sessions:teacher-occurrence-edit", args=[course_occurrence.pk]))
     assert response.status_code == 404
+
+
+@pytest.mark.django_db
+def test_teacher_cannot_edit_past_course_occurrence(client, teacher_user, course_occurrence):
+    course_occurrence.session_date = timezone.localdate() - dt.timedelta(days=1)
+    course_occurrence.save(update_fields=["session_date"])
+    previous_label = course_occurrence.label
+
+    client.force_login(teacher_user)
+    response = client.post(
+        reverse("sessions:teacher-occurrence-edit", args=[course_occurrence.pk]),
+        {
+            "label": "Cours modifié trop tard",
+            "session_date": course_occurrence.session_date.isoformat(),
+            "start_time": course_occurrence.start_time.strftime("%H:%M"),
+            "end_time": course_occurrence.end_time.strftime("%H:%M"),
+            "capacity": course_occurrence.capacity,
+            "status": SessionOccurrence.Status.OPEN,
+            "notes": course_occurrence.notes,
+        },
+        follow=True,
+    )
+
+    assert response.status_code == 200
+    assert "Impossible de modifier une occurrence passée." in response.content.decode()
+    course_occurrence.refresh_from_db()
+    assert course_occurrence.label == previous_label

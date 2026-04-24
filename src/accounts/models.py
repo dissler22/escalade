@@ -37,13 +37,13 @@ class UserManager(BaseUserManager):
 
 class User(AbstractBaseUser, PermissionsMixin):
     class Role(models.TextChoices):
-        MEMBER = "member", "Member"
-        ADMIN = "admin", "Admin"
+        MEMBER = "member", "Adhérent"
+        ADMIN = "admin", "Administrateur"
 
     class PasswordState(models.TextChoices):
-        TEMPORARY = "temporary", "Temporary"
-        ACTIVE = "active", "Active"
-        RESET_REQUIRED = "reset_required", "Reset required"
+        TEMPORARY = "temporary", "Temporaire"
+        ACTIVE = "active", "Actif"
+        RESET_REQUIRED = "reset_required", "Changement de code requis"
 
     full_name = models.CharField(max_length=255)
     login_key = models.CharField(max_length=255, unique=True, editable=False)
@@ -67,6 +67,7 @@ class User(AbstractBaseUser, PermissionsMixin):
         on_delete=models.SET_NULL,
         related_name="granted_orange_passports",
     )
+    can_teach_courses = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     password_state = models.CharField(

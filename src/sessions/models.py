@@ -14,13 +14,13 @@ class SessionSeries(models.Model):
         COURSE = "course", "Cours"
 
     class Weekday(models.IntegerChoices):
-        MONDAY = 0, "Monday"
-        TUESDAY = 1, "Tuesday"
-        WEDNESDAY = 2, "Wednesday"
-        THURSDAY = 3, "Thursday"
-        FRIDAY = 4, "Friday"
-        SATURDAY = 5, "Saturday"
-        SUNDAY = 6, "Sunday"
+        MONDAY = 0, "Lundi"
+        TUESDAY = 1, "Mardi"
+        WEDNESDAY = 2, "Mercredi"
+        THURSDAY = 3, "Jeudi"
+        FRIDAY = 4, "Vendredi"
+        SATURDAY = 5, "Samedi"
+        SUNDAY = 6, "Dimanche"
 
     label = models.CharField(max_length=255)
     weekday = models.IntegerField(choices=Weekday.choices)
@@ -50,11 +50,11 @@ class SessionSeries(models.Model):
 
     def clean(self):
         if self.default_capacity < 1:
-            raise ValidationError("Capacity must be positive.")
+            raise ValidationError("La capacité doit être strictement positive.")
         if self.end_time <= self.start_time:
-            raise ValidationError("End time must be after start time.")
+            raise ValidationError("L’heure de fin doit être après l’heure de début.")
         if self.session_type == self.SessionType.FREE_PRACTICE and self.default_teacher_id is not None:
-            raise ValidationError("Free practice series cannot have a default teacher.")
+            raise ValidationError("Une série de pratique libre ne peut pas avoir de professeur par défaut.")
 
     @property
     def is_course(self) -> bool:
@@ -75,8 +75,8 @@ class CourseEnrollmentQuerySet(models.QuerySet):
 
 class CourseEnrollment(models.Model):
     class Status(models.TextChoices):
-        ACTIVE = "active", "Active"
-        REMOVED = "removed", "Removed"
+        ACTIVE = "active", "Actif"
+        REMOVED = "removed", "Retiré"
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -118,19 +118,37 @@ class CourseEnrollment(models.Model):
 
     def clean(self):
         if self.series.session_type != SessionSeries.SessionType.COURSE:
-            raise ValidationError("Course enrollments can only target course series.")
+            raise ValidationError("Les inscriptions ne concernent que les séries de type cours.")
 
     def __str__(self) -> str:
         return f"{self.user} / {self.series}"
 
 
+class SessionSeriesSlot(models.Model):
+    series = models.ForeignKey(
+        SessionSeries,
+        on_delete=models.CASCADE,
+        related_name="slot_templates",
+    )
+    sequence_index = models.PositiveIntegerField()
+    start_time = models.TimeField()
+    end_time = models.TimeField()
+
+    class Meta:
+        ordering = ["sequence_index", "start_time", "id"]
+
+    def clean(self):
+        if self.end_time <= self.start_time:
+            raise ValidationError("L'heure de fin doit être après l'heure de début.")
+
+
 class SessionOccurrence(models.Model):
     class Status(models.TextChoices):
-        DRAFT = "draft", "Draft"
-        OPEN = "open", "Open"
-        CLOSED = "closed", "Closed"
-        CANCELLED = "cancelled", "Cancelled"
-        COMPLETED = "completed", "Completed"
+        DRAFT = "draft", "Brouillon"
+        OPEN = "open", "Ouverte"
+        CLOSED = "closed", "Fermée"
+        CANCELLED = "cancelled", "Annulée"
+        COMPLETED = "completed", "Terminée"
 
     series = models.ForeignKey(
         SessionSeries,
@@ -173,13 +191,13 @@ class SessionOccurrence(models.Model):
 
     def clean(self):
         if self.capacity < 1:
-            raise ValidationError("Capacity must be positive.")
+            raise ValidationError("La capacité doit être strictement positive.")
         if self.end_time <= self.start_time:
-            raise ValidationError("End time must be after start time.")
+            raise ValidationError("L’heure de fin doit être après l’heure de début.")
         if self.series is not None and self.session_type != self.series.session_type:
-            raise ValidationError("Occurrence type must match its series type.")
+            raise ValidationError("Le type de séance doit correspondre à celui de la série.")
         if self.session_type == SessionSeries.SessionType.FREE_PRACTICE and self.teacher_id is not None:
-            raise ValidationError("Free practice occurrences cannot expose a teacher.")
+            raise ValidationError("Une pratique libre ne peut pas avoir de professeur assigné.")
 
     @property
     def starts_at(self):
@@ -256,16 +274,16 @@ class SessionOccurrence(models.Model):
 
 class SessionSlot(models.Model):
     class Status(models.TextChoices):
-        DRAFT = "draft", "Draft"
-        OPEN = "open", "Open"
-        CLOSED = "closed", "Closed"
-        CANCELLED = "cancelled", "Cancelled"
-        COMPLETED = "completed", "Completed"
+        DRAFT = "draft", "Brouillon"
+        OPEN = "open", "Ouvert"
+        CLOSED = "closed", "Fermé"
+        CANCELLED = "cancelled", "Annulé"
+        COMPLETED = "completed", "Terminé"
 
     class CoverageStatus(models.TextChoices):
-        UNCOVERED = "uncovered", "Uncovered"
-        COVERED = "covered", "Covered"
-        CANCELLED = "cancelled", "Cancelled"
+        UNCOVERED = "uncovered", "Non couvert"
+        COVERED = "covered", "Couvert"
+        CANCELLED = "cancelled", "Annulé"
 
     occurrence = models.ForeignKey(
         SessionOccurrence,
@@ -294,15 +312,9 @@ class SessionSlot(models.Model):
 
     def clean(self):
         if self.capacity < 1:
-            raise ValidationError("Capacity must be positive.")
-        if self.end_time <= self.start_time:
-            raise ValidationError("End time must be after start time.")
+            raise ValidationError("La capacité doit être strictement positive.")
         if self.occurrence and self.occurrence.session_type != SessionSeries.SessionType.FREE_PRACTICE:
-            raise ValidationError("Slots are reserved for free practice occurrences.")
-        start_dt = dt.datetime.combine(self.occurrence.session_date, self.start_time)
-        end_dt = dt.datetime.combine(self.occurrence.session_date, self.end_time)
-        if end_dt - start_dt > MAX_SLOT_DURATION:
-            raise ValidationError("A slot cannot exceed 90 minutes.")
+            raise ValidationError("Les créneaux ne concernent que la pratique libre.")
 
     @property
     def starts_at(self):
@@ -359,9 +371,9 @@ class SessionSlot(models.Model):
 
 class ResponsibleAssignment(models.Model):
     class Status(models.TextChoices):
-        ACTIVE = "active", "Active"
-        RELEASED = "released", "Released"
-        REVOKED = "revoked", "Revoked"
+        ACTIVE = "active", "Actif"
+        RELEASED = "released", "Libéré"
+        REVOKED = "revoked", "Révoqué"
 
     slot = models.ForeignKey(
         SessionSlot,
@@ -437,4 +449,4 @@ class EmailAutomationSettings(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self) -> str:
-        return "Email automation settings"
+        return "Paramètres d’automatisation des courriels"
