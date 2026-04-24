@@ -1,0 +1,4 @@
+interface:
+  display_name: "Speckit Workflow"
+  short_description: "Run Specify/Speckit workflows from repo prompts"
+  default_prompt: "Use the Speckit workflow for a new feature spec."
