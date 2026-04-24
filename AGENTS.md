@@ -1,3 +1,9 @@
+## Mandatory First Read
+
+Before changing code or producing repository guidance, read `.specify/memory/project-memory.md` first.
+
+Then read only the relevant durable docs in `specs/` or `docs/` for the area you are changing.
+
 # escalade Development Guidelines
 
 Auto-generated from all feature plans. Last updated: 2026-03-07

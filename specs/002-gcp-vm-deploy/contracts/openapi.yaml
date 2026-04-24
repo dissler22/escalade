@@ -1,0 +1,119 @@
+openapi: 3.1.0
+info:
+  title: Escalade Production Entry Contract
+  version: 0.1.0
+  description: |
+    Contrat HTTP minimal pour la verification du deploiement en production sur la VM unique.
+servers:
+  - url: http://34.71.54.146
+    description: Point d'entree initial par IP publique pour la validation operateur
+paths:
+  /:
+    get:
+      summary: Point d'entree public
+      operationId: publicHome
+      responses:
+        "302":
+          description: Redirige vers la page de connexion lorsque l'utilisateur n'est pas authentifie
+        "200":
+          description: Redirige ou affiche la liste des seances si la session est deja etablie
+          content:
+            text/html:
+              schema:
+                type: string
+
+  /login/:
+    get:
+      summary: Afficher la page de connexion
+      operationId: showLoginPage
+      responses:
+        "200":
+          description: Formulaire HTML de connexion
+          content:
+            text/html:
+              schema:
+                type: string
+
+    post:
+      summary: Soumettre les identifiants d'un utilisateur
+      operationId: submitLogin
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  description: Email de connexion
+                password:
+                  type: string
+                  format: password
+      responses:
+        "302":
+          description: Connexion reussie avec redirection vers la liste des seances
+        "200":
+          description: Echec de connexion, formulaire reaffiche avec message d'erreur
+          content:
+            text/html:
+              schema:
+                type: string
+
+  /sessions/:
+    get:
+      summary: Afficher la liste des seances pour un utilisateur authentifie
+      operationId: showSessionList
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: Liste HTML des seances a venir
+          content:
+            text/html:
+              schema:
+                type: string
+        "302":
+          description: Redirige vers la page de connexion si la session est absente
+
+  /bookings/mine/:
+    get:
+      summary: Afficher les reservations de l'utilisateur courant
+      operationId: showMyBookings
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: Liste HTML des reservations
+          content:
+            text/html:
+              schema:
+                type: string
+        "302":
+          description: Redirige vers la page de connexion si la session est absente
+
+  /static/css/app.css:
+    get:
+      summary: Recuperer la feuille de style principale
+      operationId: fetchMainStylesheet
+      responses:
+        "200":
+          description: CSS principal servi par le frontal web
+          content:
+            text/css:
+              schema:
+                type: string
+        "404":
+          description: Asset non publie ou non accessible
+
+tags:
+  - name: public-entry
+    description: Routes minimales a verifier pour valider une release sur la VM publique
+
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: sessionid
